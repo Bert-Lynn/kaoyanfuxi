@@ -1,5 +1,6 @@
 import {CLOUD_CONFIG} from './config.js';
 const SDK='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.102.0';
+const SITE_URL='https://bert-lynn.github.io/kaoyanfuxi/';
 function loadSDK(){return new Promise((resolve,reject)=>{if(window.supabase?.createClient)return resolve();const s=document.createElement('script');s.src=SDK;s.referrerPolicy='no-referrer';s.onload=()=>window.supabase?.createClient?resolve():reject(Error('登录组件加载失败'));s.onerror=()=>reject(Error('登录组件网络不可用，请稍后重试'));document.head.append(s);setTimeout(()=>reject(Error('登录组件加载超时；本机功能仍可用')),15000)})}
 export class Cloud extends EventTarget{
  constructor(store){super();this.store=store;this.user=null;this.status='local';this.message='仅本机保存';this.busy=false;this.ready=false;this.configured=!!(CLOUD_CONFIG.url&&CLOUD_CONFIG.publishableKey);store.addEventListener('change',()=>{if(!this.busy&&this.user&&store.pending().length){this.set('pending','待同步');clearTimeout(this.debounce);this.debounce=setTimeout(()=>this.sync(),900)}});window.addEventListener('online',()=>this.sync());window.addEventListener('offline',()=>this.set('offline','离线 · 本机已保存'));document.addEventListener('visibilitychange',()=>{if(!document.hidden)this.sync()});this.interval=setInterval(()=>{if(!document.hidden)this.sync()},15000)}
@@ -12,8 +13,8 @@ export class Cloud extends EventTarget{
  sessionChanged(session){const user=session?.user||null;if(this.user?.id===user?.id){if(!user)this.set('local','未登录 · 仅本机保存');return}this.user=user;this.store.switchScope(user?.id||'guest');this.dispatchEvent(new Event('account'));if(user){this.set('pending','已登录 · 正在读取云端');this.sync()}else this.set('local','未登录 · 仅本机保存')}
  need(){if(!this.ready)throw Error(this.configured?'登录组件尚未就绪，请稍后重试':'云端数据库尚未配置，当前不能注册或登录')}
  async login(email,password){this.need();const {data,error}=await this.client.auth.signInWithPassword({email,password});if(error)throw error;this.sessionChanged(data.session)}
- async signup(email,password){this.need();const {data,error}=await this.client.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;if(data.session)this.sessionChanged(data.session);return !!data.session}
- async reset(email){this.need();const {error}=await this.client.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(error)throw error}
+ async signup(email,password){this.need();const {data,error}=await this.client.auth.signUp({email,password,options:{emailRedirectTo:SITE_URL}});if(error)throw error;if(data.session)this.sessionChanged(data.session);return !!data.session}
+ async reset(email){this.need();const {error}=await this.client.auth.resetPasswordForEmail(email,{redirectTo:SITE_URL});if(error)throw error}
  async password(password){this.need();const {error}=await this.client.auth.updateUser({password});if(error)throw error}
  async logout(){this.need();await this.sync();const {error}=await this.client.auth.signOut({scope:'local'});if(error)throw error;this.sessionChanged(null)}
  async sync(){if(!this.user||!this.client||this.busy)return;if(!navigator.onLine){this.set('offline','离线 · 待联网同步');return}this.busy=true;const owner=this.user.id,scope=this.store.scope;const still=()=>this.user?.id===owner&&this.store.scope===scope;this.set('syncing','正在同步…');try{
