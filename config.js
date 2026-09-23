@@ -1,3 +1,5 @@
-// Public client configuration. Keep empty until an authorized Supabase project is set up.
-// Never place a service_role key, secret key, database password, or user password here.
-export const CLOUD_CONFIG = {url:'',publishableKey:''};
+// Public browser configuration. This publishable key is intentionally safe for client-side use.
+export const CLOUD_CONFIG = {
+  url:'https://lweqhvangoswprmugfhv.supabase.co',
+  publishableKey:'sb_publishable_PGRepsf4rdDgyvqgRbEKFw_RijkiEu2'
+};
