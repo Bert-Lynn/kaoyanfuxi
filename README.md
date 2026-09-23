@@ -15,11 +15,9 @@ https://bert-lynn.github.io/kaoyanfuxi/
 - 登录与 Supabase 同步接口：独立账号空间、逐记录版本检查、冲突人工选择、离线保留、显式导入访客数据。
 - 新版响应式界面、三科识别色、任务与练题独立视图、休息视频入口、JSON 备份。
 
-## 云端状态：需要项目配置
+## 云端状态：已连接项目
 
-源码默认 `config.js` 为空，表示**尚未接通数据库**；页面会明确显示仅本机保存，登录不可用。不是仅加登录框就宣称已同步。
-
-连接一个授权的 Supabase 项目，执行 `supabase/schema.sql`，完成 Auth/邮件设置，并配置 Actions 仓库变量 `SUPABASE_URL` 和 `SUPABASE_PUBLISHABLE_KEY` 后重新运行部署。完整步骤见 [supabase/SETUP.md](supabase/SETUP.md)。
+已创建专用 Supabase 项目并应用 `supabase/schema.sql`。浏览器使用公开 publishable key，数据表启用 RLS，按 `auth.uid()` 隔离。登录后任务、笔记、答题与专注记录可进入云端同步。
 
 只允许公开 publishable / anon key。**禁止上传数据库密码、service_role、secret key 或账号密码。**数据库使用 RLS，以 `auth.uid()` 隔离记录。前端不保存明文密码；SDK 管理登录会话令牌。
 
