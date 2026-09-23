@@ -1,183 +1,93 @@
-(() => {
-  const SUBJECTS = {
-    xizong: { name: '西综', color: '#33756d', soft: '#e5f1ee', icon: '西', hint: '真题 · 生化导图 · 背诵' },
-    english: { name: '英语', color: '#6258a5', soft: '#eeeaf9', icon: '英', hint: '单词 · 作文 · 订正' },
-    politics: { name: '政治', color: '#a36039', soft: '#f7ece4', icon: '政', hint: '固定学习 · 复盘' }
-  };
-  const WEEK = ['日','一','二','三','四','五','六'];
-  const STORE = 'yantu_kaoyan_v1';
-
-  const DEFAULT_TEMPLATES = [
-    { id:'tpl-xz-video', subject:'xizong', title:'10年真题录播 × 2节', chapter:'真题录播', duration:90, days:[0,1,2,3,4,5,6], enabled:true },
-    { id:'tpl-xz-biochem', subject:'xizong', title:'生化导图 × 3张 + 做题', chapter:'生化整理', duration:60, days:[0,1,2,3,4,5,6], enabled:true },
-    { id:'tpl-xz-memory', subject:'xizong', title:'葫芦丝背诵', chapter:'每日背诵', duration:120, days:[0,1,2,3,4,5,6], enabled:true },
-    { id:'tpl-en-essay', subject:'english', title:'作文模板背诵', chapter:'作文', duration:30, days:[0,1,2,3,4,5,6], enabled:true },
-    { id:'tpl-en-words', subject:'english', title:'红宝书单词 1 Unit', chapter:'红宝书', duration:30, days:[0,1,2,3,4,5,6], enabled:true },
-    { id:'tpl-en-correct', subject:'english', title:'英语订正 / 阅读复盘', chapter:'阅读 · 完形 · 翻译按当天调整', duration:60, days:[0,1,2,3,4,5,6], enabled:true },
-    { id:'tpl-po-daily', subject:'politics', title:'政治学习 1h', chapter:'按当前章节推进', duration:60, days:[0,1,2,3,4,5,6], enabled:true }
-  ];
-
-  const DEFAULT_WEEKLY = [
-    { id:'w1', title:'完成 1 套西综真题', completed:false },
-    { id:'w2', title:'完成 1 套英语整卷', completed:false },
-    { id:'w3', title:'检查 2 套大作文 + 小作文背诵', completed:false },
-    { id:'w4', title:'整理本周错题与下周重点', completed:false }
-  ];
-
-  const TIPS = [
-    { subject:'记忆', title:'“看懂了”不等于“能想起来”', body:'复习完一个知识点后，合上资料，尝试用自己的话写出框架。主动提取本身就是强化记忆的过程。', source:'参考：Karpicke & Roediger, Science, 2008（检索练习）' },
-    { subject:'安排', title:'同样的总学习量，分散练通常比突击更耐久', body:'对高频考点可以在当天、隔天、一周后再次短复习；不要只靠一次长时间重复阅读。', source:'参考：Cepeda et al., Psychological Bulletin, 2006（间隔效应元分析）' },
-    { subject:'真题', title:'做完真题后，解释“为什么错”比只记答案更值钱', body:'把错误归到知识缺口、审题、选项辨析或时间分配，下一轮复习才能针对真正的原因。', source:'参考：Dunlosky et al., Psychological Science in the Public Interest, 2013（学习技术综述）' },
-    { subject:'英语', title:'背作文模板时，最好同时练“无提示回忆”', body:'看着模板读很多遍容易产生熟悉感。遮住原文，按逻辑骨架复述或默写，才更接近考场调用。', source:'依据：检索练习与生成效应相关实验研究' },
-    { subject:'专注', title:'休息不是中断计划，而是计划的一部分', body:'高负荷学习后，短时离开材料并做真正的休息，有利于下一段学习保持注意质量。', source:'参考：Lim & Dinges, Sleep, 2010（睡眠剥夺与认知表现元分析）' },
-    { subject:'复盘', title:'把“明天做什么”写具体，会降低重新启动成本', body:'例如不要只写“英语”，而是写“红宝书 Unit 15 + 阅读订正 2 篇”。任务越可执行，开始越容易。', source:'参考：Gollwitzer, American Psychologist, 1999（实施意图）' },
-    { subject:'节奏', title:'先完成高价值任务，再追求任务数量', body:'进度条是反馈工具，不是目标本身。若当天状态有限，优先保住真题、核心背诵和订正。', source:'设计原则：优先级与可执行计划结合' },
-    { subject:'错题', title:'错题复习不要只重看，最好重新作答', body:'如果只是看解析，容易误以为已经掌握。隔一段时间重新做，才能检测这个错误是否真正消失。', source:'参考：Roediger & Karpicke, Psychological Science, 2006（测试效应）' }
-  ];
-
-  const today = formatDate(new Date());
-  let state = loadState();
-  let activeDate = today;
-  let activeTipIndex = tipIndexForDate(activeDate);
-  let focus = { taskId:null, startedAt:null, elapsedBefore:0, paused:false, timer:null, targetSeconds:0 };
-
-  const $ = id => document.getElementById(id);
-  const els = {
-    globalSearch:$('globalSearch'), searchPanel:$('searchPanel'), dateLabel:$('dateLabel'), progressRing:$('progressRing'), progressPercent:$('progressPercent'), doneCount:$('doneCount'), focusTime:$('focusTime'), examCountdown:$('examCountdown'), subjectProgress:$('subjectProgress'), tipSubject:$('tipSubject'), tipTitle:$('tipTitle'), tipBody:$('tipBody'), tipSource:$('tipSource'), weekStrip:$('weekStrip'), activeDate:$('activeDate'), subjectGrid:$('subjectGrid'), weeklyChecklist:$('weeklyChecklist'), dailyNote:$('dailyNote'), noteSaved:$('noteSaved'), templateList:$('templateList'), focusDock:$('focusDock'), focusSubject:$('focusSubject'), focusTaskTitle:$('focusTaskTitle'), focusClock:$('focusClock'), pauseFocus:$('pauseFocus'), toast:$('toast')
-  };
-
-  function loadState(){
-    try{
-      const saved = JSON.parse(localStorage.getItem(STORE));
-      if(saved) return { tasks:saved.tasks||[], templates:saved.templates||DEFAULT_TEMPLATES, weekly:saved.weekly||{}, focusLogs:saved.focusLogs||[], notes:saved.notes||{}, settings:saved.settings||{} };
-    }catch(e){}
-    return { tasks:[], templates:structuredClone(DEFAULT_TEMPLATES), weekly:{}, focusLogs:[], notes:{}, settings:{} };
-  }
-  function saveState(){ localStorage.setItem(STORE, JSON.stringify(state)); }
-  function uid(prefix='id'){ return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
-  function formatDate(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
-  function parseDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
-  function addDays(s,n){ const d=parseDate(s); d.setDate(d.getDate()+n); return formatDate(d); }
-  function mondayOf(s){ const d=parseDate(s); const day=d.getDay(); const diff=(day===0?-6:1-day); d.setDate(d.getDate()+diff); return formatDate(d); }
-  function weekKey(s){ return mondayOf(s); }
-  function dateText(s){ const d=parseDate(s); return `${d.getMonth()+1}月${d.getDate()}日 星期${WEEK[d.getDay()]}`; }
-  function htmlSafe(v=''){ return String(v).replace(/[&<>'"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[c])); }
-  function dayLabel(days){ if(days.length===7) return '每天'; if(days.length===5 && [1,2,3,4,5].every(x=>days.includes(x))) return '工作日'; return days.slice().sort().map(d=>`周${WEEK[d]}`).join(' · '); }
-
-  function ensureDateTasks(date){
-    const dow=parseDate(date).getDay();
-    state.templates.filter(t=>t.enabled && t.days.includes(dow)).forEach(t=>{
-      if(!state.tasks.some(task=>task.date===date && task.templateId===t.id)){
-        state.tasks.push({ id:uid('task'), date, subject:t.subject, title:t.title, chapter:t.chapter||'', duration:Number(t.duration)||0, completed:false, templateId:t.id, createdAt:Date.now() });
-      }
-    });
-    saveState();
-  }
-
-  function tasksFor(date,subject){ ensureDateTasks(date); return state.tasks.filter(t=>t.date===date && (!subject || t.subject===subject)); }
-
-  function render(){
-    ensureDateTasks(activeDate);
-    els.activeDate.value=activeDate;
-    els.dateLabel.textContent=dateText(activeDate).toUpperCase();
-    renderTip(); renderProgress(); renderWeek(); renderSubjects(); renderWeekly(); renderNote(); renderTemplates();
-  }
-
-  function renderProgress(){
-    const tasks=tasksFor(activeDate); const done=tasks.filter(t=>t.completed).length; const pct=tasks.length?Math.round(done/tasks.length*100):0;
-    els.progressRing.style.background=`conic-gradient(var(--brand) ${pct*3.6}deg,#e6ebe7 0deg)`;
-    els.progressPercent.textContent=`${pct}%`; els.doneCount.textContent=`${done} / ${tasks.length}`;
-    const minutes=Math.round(state.focusLogs.filter(x=>x.date===activeDate).reduce((s,x)=>s+x.seconds,0)/60);
-    els.focusTime.textContent=minutes>=60?`${Math.floor(minutes/60)}h ${minutes%60}m`:`${minutes} min`;
-    if(state.settings.examDate){ const diff=Math.ceil((parseDate(state.settings.examDate)-parseDate(activeDate))/86400000); els.examCountdown.textContent=diff>=0?`${diff} 天`:'已结束'; } else els.examCountdown.textContent='未设置';
-    els.subjectProgress.innerHTML=Object.entries(SUBJECTS).map(([key,s])=>{ const list=tasks.filter(t=>t.subject===key), c=list.filter(t=>t.completed).length, p=list.length?Math.round(c/list.length*100):0; return `<div class="subject-progress-row"><span>${s.name}</span><div class="bar"><div class="bar-fill" style="width:${p}%;background:${s.color}"></div></div><strong>${p}%</strong></div>`; }).join('');
-  }
-
-  function renderTip(){ const tip=TIPS[activeTipIndex%TIPS.length]; els.tipSubject.textContent=`今日备考冷知识 · ${tip.subject}`; els.tipTitle.textContent=tip.title; els.tipBody.textContent=tip.body; els.tipSource.textContent=tip.source; }
-  function tipIndexForDate(date){ return [...date].reduce((a,c)=>a+c.charCodeAt(0),0)%TIPS.length; }
-
-  function renderWeek(){
-    const start=mondayOf(activeDate); let html='';
-    for(let i=0;i<7;i++){ const date=addDays(start,i); const d=parseDate(date); const tasks=tasksFor(date); const done=tasks.filter(t=>t.completed).length; const p=tasks.length?Math.round(done/tasks.length*100):0;
-      html+=`<button class="week-day ${date===activeDate?'active':''}" data-date="${date}"><div class="week-top"><span class="weekday">周${WEEK[d.getDay()]}</span><span class="day-num">${d.getDate()}</span></div><span class="week-count">${done}/${tasks.length} 完成</span><div class="week-mini"><span style="width:${p}%"></span></div></button>`;
-    }
-    els.weekStrip.innerHTML=html;
-  }
-
-  function renderSubjects(){
-    els.subjectGrid.innerHTML=Object.entries(SUBJECTS).map(([key,s])=>{
-      const tasks=tasksFor(activeDate,key); const done=tasks.filter(t=>t.completed).length;
-      const rows=tasks.length?tasks.map(t=>`<div class="task-row ${t.completed?'completed':''}" data-task-id="${t.id}">
-        <button class="task-check" data-action="toggle" title="${t.completed?'取消完成':'标记完成'}">${t.completed?'✓':''}</button>
-        <div class="task-copy"><div class="task-title">${htmlSafe(t.title)}</div><div class="task-meta">${t.chapter?`<span class="meta-pill">${htmlSafe(t.chapter)}</span>`:''}${t.duration?`<span class="meta-pill">${t.duration} min</span>`:''}${t.templateId?'<span class="meta-pill">模板</span>':''}</div></div>
-        <div class="task-actions"><button class="mini-btn" data-action="focus" title="开始计时">▶</button><button class="mini-btn" data-action="edit" title="编辑">✎</button><button class="mini-btn" data-action="delete" title="删除">×</button></div></div>`).join(''):`<div class="empty-state">今天还没有 ${s.name} 任务。</div>`;
-      return `<article class="subject-panel"><div class="subject-head" style="background:linear-gradient(180deg,${s.soft},#fff)"><div class="subject-title-row"><div class="subject-name"><span class="subject-dot" style="background:${s.color}"></span><h2>${s.name}</h2></div><span class="subtle">${done}/${tasks.length}</span></div><small>${s.hint}</small></div><div class="subject-task-list">${rows}</div><div class="subject-footer"><button class="add-inline" data-add-subject="${key}">＋ 添加 ${s.name} 任务</button></div></article>`;
-    }).join('');
-  }
-
-  function currentWeekly(){ const key=weekKey(activeDate); if(!state.weekly[key]) state.weekly[key]=structuredClone(DEFAULT_WEEKLY); return state.weekly[key]; }
-  function renderWeekly(){ const items=currentWeekly(); els.weeklyChecklist.innerHTML=items.length?items.map(item=>`<label class="weekly-row ${item.completed?'completed':''}" data-weekly-id="${item.id}"><input type="checkbox" ${item.completed?'checked':''}/><span>${htmlSafe(item.title)}</span><button class="delete-text" type="button">删除</button></label>`).join(''):`<div class="weekly-empty">本周还没有固定检查事项。</div>`; saveState(); }
-
-  function renderNote(){ els.dailyNote.value=state.notes[activeDate]||''; }
-  function renderTemplates(){ els.templateList.innerHTML=state.templates.map(t=>{ const s=SUBJECTS[t.subject]; return `<div class="template-row ${t.enabled?'':'disabled'}" data-template-id="${t.id}"><div class="template-icon" style="background:${s.soft};color:${s.color}">${s.icon}</div><div><strong>${htmlSafe(t.title)}</strong><small>${dayLabel(t.days)}${t.duration?` · ${t.duration} min`:''}${t.chapter?` · ${htmlSafe(t.chapter)}`:''}</small></div><div class="template-actions"><button class="mini-btn" data-template-action="toggle" title="启用/停用">${t.enabled?'●':'○'}</button><button class="mini-btn" data-template-action="edit" title="编辑">✎</button><button class="mini-btn" data-template-action="delete" title="删除">×</button></div></div>`; }).join(''); }
-
-  function setActiveDate(date){ activeDate=date; activeTipIndex=tipIndexForDate(date); render(); }
-  function openModal(id){ $(id).classList.remove('hidden'); }
-  function closeModal(id){ $(id).classList.add('hidden'); }
-  function toast(msg){ els.toast.textContent=msg; els.toast.classList.remove('hidden'); clearTimeout(toast.t); toast.t=setTimeout(()=>els.toast.classList.add('hidden'),2200); }
-
-  function openTaskModal(subject='xizong', task=null){
-    $('taskModalTitle').textContent=task?'编辑任务':'添加任务'; $('taskId').value=task?.id||''; $('taskSubject').value=task?.subject||subject; $('taskDate').value=task?.date||activeDate; $('taskTitle').value=task?.title||''; $('taskChapter').value=task?.chapter||''; $('taskDuration').value=task?.duration||''; openModal('taskModal'); setTimeout(()=>$('taskTitle').focus(),50);
-  }
-  function openTemplateModal(t=null){
-    $('templateModalTitle').textContent=t?'编辑模板':'新建模板'; $('templateId').value=t?.id||''; $('templateSubject').value=t?.subject||'xizong'; $('templateTitle').value=t?.title||''; $('templateChapter').value=t?.chapter||''; $('templateDuration').value=t?.duration||'';
-    $('weekdayPills').innerHTML=[1,2,3,4,5,6,0].map(d=>`<label class="weekday-pill"><input type="checkbox" value="${d}" ${(t?.days||[0,1,2,3,4,5,6]).includes(d)?'checked':''}><span>周${WEEK[d]}</span></label>`).join(''); openModal('templateModal');
-  }
-
-  function startFocus(task){
-    stopFocusTimer(); focus={ taskId:task.id, startedAt:Date.now(), elapsedBefore:0, paused:false, timer:null, targetSeconds:(Number(task.duration)||0)*60 };
-    els.focusSubject.textContent=`${SUBJECTS[task.subject].name} · 专注中`; els.focusTaskTitle.textContent=task.title; els.pauseFocus.textContent='暂停'; els.focusDock.classList.remove('hidden'); updateFocusClock(); focus.timer=setInterval(updateFocusClock,1000);
-  }
-  function elapsedSeconds(){ if(!focus.taskId) return 0; return focus.elapsedBefore + (focus.paused?0:Math.floor((Date.now()-focus.startedAt)/1000)); }
-  function updateFocusClock(){ const elapsed=elapsedSeconds(); let shown=elapsed; if(focus.targetSeconds>0) shown=Math.max(0,focus.targetSeconds-elapsed); const m=Math.floor(shown/60), s=shown%60; els.focusClock.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; if(focus.targetSeconds>0 && shown===0){ els.focusClock.textContent='完成'; } }
-  function pauseFocus(){ if(!focus.taskId) return; if(focus.paused){ focus.startedAt=Date.now(); focus.paused=false; els.pauseFocus.textContent='暂停'; } else { focus.elapsedBefore=elapsedSeconds(); focus.paused=true; els.pauseFocus.textContent='继续'; } }
-  function stopFocusTimer(){ if(focus.timer) clearInterval(focus.timer); }
-  function finishFocus(markDone){ if(!focus.taskId) return; const seconds=Math.max(1,elapsedSeconds()); const task=state.tasks.find(t=>t.id===focus.taskId); if(task){ state.focusLogs.push({id:uid('focus'),taskId:task.id,date:task.date,seconds,endedAt:Date.now()}); if(markDone) task.completed=true; } saveState(); stopFocusTimer(); focus={taskId:null,startedAt:null,elapsedBefore:0,paused:false,timer:null,targetSeconds:0}; els.focusDock.classList.add('hidden'); render(); toast(markDone?'已记录专注时间并完成任务':'已记录本次专注时间'); }
-
-  function runSearch(q){
-    q=q.trim().toLowerCase(); if(!q){ els.searchPanel.classList.add('hidden'); return; }
-    const results=state.tasks.filter(t=>`${t.title} ${t.chapter} ${t.date} ${SUBJECTS[t.subject].name}`.toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,18);
-    els.searchPanel.innerHTML=results.length?results.map(t=>`<button class="search-result" data-search-task="${t.id}"><span class="dot" style="background:${SUBJECTS[t.subject].color}"></span><span><strong>${htmlSafe(t.title)}</strong><small>${t.date} · ${SUBJECTS[t.subject].name}${t.chapter?` · ${htmlSafe(t.chapter)}`:''}</small></span><span>${t.completed?'✓':'→'}</span></button>`).join(''):`<div class="search-empty">没有找到相关任务。</div>`;
-    els.searchPanel.classList.remove('hidden');
-  }
-
-  $('taskForm').addEventListener('submit',e=>{ e.preventDefault(); const id=$('taskId').value; const data={ subject:$('taskSubject').value,date:$('taskDate').value,title:$('taskTitle').value.trim(),chapter:$('taskChapter').value.trim(),duration:Number($('taskDuration').value)||0 };
-    if(id){ const t=state.tasks.find(x=>x.id===id); Object.assign(t,data); } else state.tasks.push({id:uid('task'),...data,completed:false,createdAt:Date.now()}); saveState(); closeModal('taskModal'); setActiveDate(data.date); toast(id?'任务已更新':'任务已添加'); });
-
-  $('templateForm').addEventListener('submit',e=>{ e.preventDefault(); const id=$('templateId').value; const days=[...$('weekdayPills').querySelectorAll('input:checked')].map(x=>Number(x.value)); if(!days.length){ toast('至少选择一天'); return; } const data={subject:$('templateSubject').value,title:$('templateTitle').value.trim(),chapter:$('templateChapter').value.trim(),duration:Number($('templateDuration').value)||0,days,enabled:true}; if(id){ const t=state.templates.find(x=>x.id===id); const enabled=t.enabled; Object.assign(t,data,{enabled}); } else state.templates.push({id:uid('tpl'),...data}); saveState(); closeModal('templateModal'); render(); toast(id?'模板已更新；已生成任务不会被改动':'模板已添加'); });
-
-  $('weeklyForm').addEventListener('submit',e=>{ e.preventDefault(); const title=$('weeklyTitle').value.trim(); if(!title)return; currentWeekly().push({id:uid('weekly'),title,completed:false}); $('weeklyTitle').value=''; saveState(); closeModal('weeklyModal'); renderWeekly(); });
-  $('examForm').addEventListener('submit',e=>{ e.preventDefault(); state.settings.examDate=$('examDateInput').value; saveState(); closeModal('examModal'); renderProgress(); toast('考试日已保存'); });
-
-  els.subjectGrid.addEventListener('click',e=>{ const add=e.target.closest('[data-add-subject]'); if(add){ openTaskModal(add.dataset.addSubject); return; } const row=e.target.closest('[data-task-id]'); if(!row)return; const task=state.tasks.find(t=>t.id===row.dataset.taskId); const action=e.target.closest('[data-action]')?.dataset.action; if(action==='toggle'){ task.completed=!task.completed; saveState(); render(); } if(action==='focus')startFocus(task); if(action==='edit')openTaskModal(task.subject,task); if(action==='delete'){ if(confirm(`删除任务“${task.title}”？`)){ state.tasks=state.tasks.filter(t=>t.id!==task.id); saveState(); render(); } } });
-  els.weekStrip.addEventListener('click',e=>{ const b=e.target.closest('[data-date]'); if(b)setActiveDate(b.dataset.date); });
-  els.weeklyChecklist.addEventListener('click',e=>{ const row=e.target.closest('[data-weekly-id]'); if(!row)return; const item=currentWeekly().find(x=>x.id===row.dataset.weeklyId); if(e.target.matches('input')){ item.completed=e.target.checked; saveState(); renderWeekly(); } if(e.target.matches('.delete-text')){ const list=currentWeekly(); state.weekly[weekKey(activeDate)]=list.filter(x=>x.id!==item.id); saveState(); renderWeekly(); } });
-  els.templateList.addEventListener('click',e=>{ const row=e.target.closest('[data-template-id]'); if(!row)return; const t=state.templates.find(x=>x.id===row.dataset.templateId); const action=e.target.closest('[data-template-action]')?.dataset.templateAction; if(action==='toggle'){ t.enabled=!t.enabled; saveState(); renderTemplates(); } if(action==='edit')openTemplateModal(t); if(action==='delete'){ if(confirm(`删除模板“${t.title}”？已生成的历史任务会保留。`)){ state.templates=state.templates.filter(x=>x.id!==t.id); saveState(); renderTemplates(); } } });
-
-  els.activeDate.addEventListener('change',()=>setActiveDate(els.activeDate.value)); $('prevDay').onclick=()=>setActiveDate(addDays(activeDate,-1)); $('nextDay').onclick=()=>setActiveDate(addDays(activeDate,1)); $('todayBtn').onclick=()=>setActiveDate(today); $('addTaskTop').onclick=()=>openTaskModal(); $('addTemplateBtn').onclick=()=>openTemplateModal(); $('addWeeklyBtn').onclick=()=>openModal('weeklyModal'); $('dataBtn').onclick=()=>openModal('dataModal');
-  $('examDateBtn').onclick=()=>{ $('examDateInput').value=state.settings.examDate||''; openModal('examModal'); };
-  $('shuffleTip').onclick=()=>{ activeTipIndex=(activeTipIndex+1)%TIPS.length; renderTip(); };
-  els.pauseFocus.onclick=pauseFocus; $('finishFocus').onclick=()=>finishFocus(true); $('closeFocus').onclick=()=>finishFocus(false);
-  els.dailyNote.addEventListener('input',()=>{ state.notes[activeDate]=els.dailyNote.value; saveState(); els.noteSaved.textContent='已保存'; clearTimeout(renderNote.t); renderNote.t=setTimeout(()=>els.noteSaved.textContent='自动保存',1300); });
-
-  els.globalSearch.addEventListener('input',()=>runSearch(els.globalSearch.value)); els.searchPanel.addEventListener('click',e=>{ const b=e.target.closest('[data-search-task]'); if(!b)return; const t=state.tasks.find(x=>x.id===b.dataset.searchTask); if(t){ els.globalSearch.value=''; els.searchPanel.classList.add('hidden'); setActiveDate(t.date); setTimeout(()=>{ const row=document.querySelector(`[data-task-id="${t.id}"]`); row?.scrollIntoView({behavior:'smooth',block:'center'}); row?.animate([{background:'#fff5c9'},{background:'transparent'}],{duration:1300}); },80); } });
-  document.addEventListener('click',e=>{ if(!e.target.closest('.search-box'))els.searchPanel.classList.add('hidden'); });
-  document.addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); els.globalSearch.focus(); } if(e.key==='Escape'){ document.querySelectorAll('.modal-backdrop:not(.hidden)').forEach(x=>x.classList.add('hidden')); els.searchPanel.classList.add('hidden'); } });
-  document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close)));
-  document.querySelectorAll('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m)closeModal(m.id); }));
-
-  $('exportBtn').onclick=()=>{ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`研途备份-${today}.json`; a.click(); URL.revokeObjectURL(a.href); toast('备份已导出'); };
-  $('importFile').addEventListener('change',async e=>{ const file=e.target.files[0]; if(!file)return; try{ const data=JSON.parse(await file.text()); if(!data.tasks||!data.templates)throw new Error(); if(confirm('导入会覆盖当前浏览器中的计划数据，继续吗？')){ state=data; saveState(); closeModal('dataModal'); render(); toast('备份已导入'); } }catch(err){ toast('备份文件格式不正确'); } e.target.value=''; });
-
-  render();
-})();
+import {VERSION,SUBJECTS,BASE,Store,uid,esc,link,dateKey,validDate,pd,addDays,daysBetween,weekDays,mins,clock,cfg,generate,tasksFor,materialize,stats,progress,timerElapsed,splitInterval,validateQuestions} from './core.js';
+import {QUESTIONS,available,grade,shuffle} from './questions.js';
+import {Cloud} from './cloud.js';
+const $=id=>document.getElementById(id), store=new Store(), cloud=new Cloud(store);
+let date=dateKey(),view='today',authMode='login',toastHandle,renderHandle,autoHandle;
+const requested=new URLSearchParams(location.search).get('date');if(validDate(requested))date=requested;
+let current=null,chosen=[],submitted=false,questionStarted=0,roundSeen=new Set(),round=1,feedback=null;
+let timer=null;
+function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastHandle);toastHandle=setTimeout(()=>$('toast').hidden=true,4200)}
+function open(id){if(!$(id).open)$(id).showModal()}
+function close(id){$(id).close()}
+function dateText(d){return new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(pd(d))}
+function allQuestions(){return [...QUESTIONS,...store.all('question')]}
+function sourceHTML(q){const url=link(q.source?.url||'');return `<div class="question-source">${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(q.source?.title||'查看来源')} ↗</a>`:esc(q.source?.title||'未提供来源')}<br>${esc(q.source?.level||'用户资料，未独立核验')}</div>`}
+function setView(v){view=['today','practice','progress'].includes(v)?v:'today';document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));$('viewName').textContent=({today:'今日计划',practice:'随手练题',progress:'复习总览'})[view];$('viewToday').hidden=view!=='today';$('studyGrid').hidden=view==='progress';$('viewProgress').hidden=view!=='progress';$('reflection').hidden=view!=='today';if(view==='progress')clearTimeout(autoHandle);render();window.scrollTo({top:0,behavior:'instant'})}
+function render(){renderMetrics();renderWeek();renderBoards();renderStages();renderQuizStats();renderHistory();renderCloud();$('activeDate').value=date;$('dayLabel').textContent=dateText(date);$('helloDate').textContent=dateText(dateKey())+' · YOUR STUDY SPACE';const c=cfg(store);$('greeting').innerHTML=c.name?`${esc(c.name)}，<em>每一步都算数。</em>`:'把每一步，<em>都看得见。</em>';$('planHint').textContent=date<c.start?`新计划从 ${c.start} 开始。可以点上方日期查看或调整起始日。`:'日期表示计划，勾选才计入完成；未设时长的任务可自由计时。';if(document.activeElement!==$('dailyNote'))$('dailyNote').value=store.get('note',date)?.text||'';$('storageWarning').hidden=!store.error;$('storageWarning').textContent=store.error||'';updateTimer()}
+function renderMetrics(){const s=stats(tasksFor(store,date)),week=weekDays(date).flatMap(d=>tasksFor(store,d)),w=stats(week);$('dayCount').innerHTML=`${s.done} <small>/ ${s.total} 项</small>`;$('dayPct').textContent=s.pct+'%';$('dayRing').style.setProperty('--p',s.pct);$('plannedMinutes').textContent=s.minutes?`已设时长 ${s.minutes} min`:'未设时长可单独定时';$('weekPct').innerHTML=w.pct+'<small>%</small>';$('weekCount').textContent=`${w.done} / ${w.total} 项 · 包含本周计划`;const sessions=store.all('focus'),todaySec=sessions.filter(x=>x.date===dateKey()).reduce((n,x)=>n+(+x.seconds||0),0),allSec=sessions.reduce((n,x)=>n+(+x.seconds||0),0);$('focusToday').innerHTML=`${Math.floor(todaySec/60)} <small>min</small>`;$('focusAll').textContent='累计 '+mins(allSec);const exam=cfg(store).examDate;$('examDays').innerHTML=validDate(exam)?`${Math.max(0,daysBetween(exam,dateKey()))} <small>天</small>`:'未设置'}
+function renderWeek(){$('weekStrip').innerHTML=weekDays(date).map((d,i)=>{const s=stats(tasksFor(store,d));return `<button class="week-day ${date===d?'active':''}" data-date="${d}" aria-label="${d}，已完成${s.done}项"><div class="daytop"><span>周${'一二三四五六日'[i]}</span><b>${pd(d).getDate()}</b></div><div class="mini-progress"><i style="width:${s.pct}%"></i></div><small>${s.done}/${s.total} 完成</small></button>`}).join('')}
+function renderBoards(){const tasks=tasksFor(store,date);$('boards').innerHTML=Object.entries(SUBJECTS).map(([id,s])=>{const a=tasks.filter(t=>t.subject===id),st=stats(a);return `<article class="subject-board ${id}"><div class="board-head"><span class="subject-symbol">${s.icon}</span><div><h3>${s.name}</h3><small>${s.en}</small></div><b>${st.done} / ${st.total}</b></div><div class="task-list">${a.map(t=>`<div class="task ${t.done?'done':''}"><button class="task-check" data-toggle="${esc(t.id)}" aria-label="${t.done?'取消完成':'完成'}：${esc(t.title)}" aria-pressed="${!!t.done}">${t.done?'✓':''}</button><div><div class="task-title">${esc(t.title)}</div><div class="task-detail">${esc(t.detail||'可填写章节 / 范围')}</div><div class="task-controls"><span class="time-tag">${+t.dur>0?esc(t.dur)+' min':'自由定时'}</span>${t.pri==='high'?'<span class="priority-dot">优先</span>':''}<button data-time-task="${esc(t.id)}">▷ 计时</button><button data-edit-task="${esc(t.id)}">编辑</button></div></div></div>`).join('')||'<div class="empty-tasks">留一点弹性。<br>今天的任务由你来安排。</div>'}</div><button class="board-add" data-add-subject="${id}">＋ 添加${s.name}任务</button></article>`}).join('')}
+function renderStages(){const p=progress(store),c=cfg(store),items=[['西综真题作答',p.xz,11,'起点：2020–2026 已做；订正和带背仍是独立任务。'],['生化导图',p.maps,34,'已完成起点与后续已勾选图号合并，重复图号不累加。'],['红宝书单词',p.words,57,'每日一单元；已完成单元数与计划日期分开统计。'],['Anki 卡片',p.anki,1202,'未填写过的进度默认以 0 为计划起点，可随时修正。'],['肖1000 · 马原',c.xiaoMarxDone,16,'当前为手动记录的章节起点，可在设置里更新。'],['史纲剩余课程',c.historyLeft,4,'这是起点备注，不根据日历自动宣布课程已完成。']];$('progressCards').innerHTML=items.map(([name,n,total,note],i)=>`<article class="stage-card"><div class="head"><h3>${name}</h3><b>${esc(n)} <small>${i===5?'节':'/ '+total}</small></b></div><p>${note}</p><div class="mini-progress"><i style="width:${Math.min(100,Math.max(0,(i===5?total-n:n)/total*100))}%"></i></div></article>`).join('')}
+function taskById(id){return store.get('task',id)||tasksFor(store,date).find(t=>t.id===id)}
+function editTask(t=null,subject='west'){if(t)materialize(store,t.date);$('taskHeading').textContent=t?'编辑任务':'添加任务';$('taskId').value=t?.id||'';$('taskSubject').value=t?.subject||subject;$('taskDate').value=t?.date||date;$('taskTitle').value=t?.title||'';$('taskDetail').value=t?.detail||'';$('taskMinutes').value=t?.dur||0;$('taskPriority').value=t?.pri||'normal';$('deleteTask').hidden=!t;open('taskDialog')}
+function toggleTask(id){const t=taskById(id);if(!t)return;materialize(store,t.date);store.put('task',id,{...t,done:!t.done});renderBoards();renderMetrics();renderStages()}
+$('taskForm').addEventListener('submit',e=>{e.preventDefault();const id=$('taskId').value||uid(),old=store.get('task',id),d=$('taskDate').value,title=$('taskTitle').value.trim(),dur=Number($('taskMinutes').value);if(!title||!validDate(d)||!Number.isInteger(dur)||dur<0||dur>1440)return toast('请检查任务名称、日期和时长');materialize(store,d);store.put('task',id,{...old,id,date:d,subject:$('taskSubject').value,title,detail:$('taskDetail').value.trim(),dur,pri:$('taskPriority').value,done:old?.done||false});date=d;close('taskDialog');render();toast('任务已保存')});
+$('deleteTask').onclick=()=>{if(confirm('删除这项任务？删除会同步到你的账号，其他任务不受影响。')){store.del('task',$('taskId').value);close('taskDialog');render()}};
+const fields=[['name','怎样称呼你','text'],['examDate','考试日期（自行设置）','date'],['start','总计划起始日','date'],['xzAnchor','西综四日循环起始日','date'],['enAnchor','英语四日循环起始日','date'],['enStartYear','英语下一套年份','years'],['redbookDone','红宝书已完成起点 / 57','number',57],['bioMapsDone','生化导图已完成起点 / 34','number',34],['ankiDone','Anki 已完成起点 / 1202','number',1202],['hulusiBlock','葫芦丝当前板块','text'],['historyLeft','史纲视频剩余课程起点','number',100],['xiaoMarxDone','肖1000 马原已完成章节 / 16','number',16]];
+function openSettings(){const c=cfg(store);$('settingsFields').innerHTML=fields.map(([id,label,type,max])=>`<label>${label}${type==='years'?`<select name="${id}">${[2025,2023,2021,2020,2019,2018,2017,2016].map(y=>`<option ${+c[id]===y?'selected':''}>${y}</option>`).join('')}</select>`:`<input name="${id}" type="${type}" value="${esc(c[id]??'')}" ${type==='number'?`min="0" max="${max}" step="1"`:''} ${type==='date'&&id!=='examDate'?'required':''} ${type==='text'?'maxlength="100"':''}>`}</label>`).join('')+`<label class="check-label wide"><input name="essayAlt" type="checkbox" ${c.essayAlt?'checked':''}>作文模板隔天背诵（30 分钟）</label><label class="check-label wide"><input name="protectReserved" type="checkbox" ${c.protectReserved?'checked':''}>保护英语 2022 / 2024 / 2026 模拟卷，不随机抽取</label>`;open('settingsDialog')}
+$('settingsForm').onsubmit=e=>{e.preventDefault();const c=cfg(store),f=new FormData(e.target);for(const[id,,type,max]of fields){const v=f.get(id);if(type==='number'){const n=Number(v);if(!Number.isInteger(n)||n<0||n>max)return toast('进度数字超出范围');c[id]=n}else if(type==='date'){if(v&&!validDate(v))return toast('日期格式不正确');c[id]=v}else c[id]=type==='years'?+v:String(v).trim()}
+ c.essayAlt=f.has('essayAlt');if(!f.has('protectReserved')&&c.protectReserved&&!confirm('解除保护后，练题可能提前出现保留模拟卷的内容。确认解除？'))return;c.protectReserved=f.has('protectReserved');store.put('cfg','plan',c);close('settingsDialog');roundSeen.clear();nextQuestion();render();toast('已保存。已有日期的任务不强制覆盖，需要时可在“数据与题库”重建当日计划。')};
+// Quiz: one submission per display, unlimited displays. Statistics retain repeat attempts separately.
+function quizFilters(){return{subject:$('quizSubject').value,mode:$('quizMode').value,kind:$('quizKind').value,protect:cfg(store).protectReserved}}
+function nextQuestion(){clearTimeout(autoHandle);const pool=available(allQuestions(),store.all('attempt'),quizFilters());let candidates=pool.filter(q=>!roundSeen.has(q.id));if(!candidates.length&&pool.length){roundSeen.clear();round++;candidates=pool.filter(q=>pool.length===1||q.id!==current?.id)}current=shuffle(candidates)[0]||null;chosen=[];submitted=false;feedback=null;questionStarted=Date.now();if(current)roundSeen.add(current.id);renderQuestion();renderQuizStats()}
+function kindName(q){return q.kind==='past'?(q.imported?'用户导入真题':'真题 · 公开整理版'):q.kind==='adapted'?'历年考点改写':'原创练习'}
+function renderQuestion(){if(!current){const f=quizFilters();$('questionBody').innerHTML=`<div class="question-empty">${f.mode==='wrong'?'当前筛选下没有待重练错题。':f.mode==='unseen'?'当前筛选下的题目已全部做过。':'当前筛选下还没有可用题目。'}<p>${f.kind==='past'?'完整真题需先导入；内置题目没有冒充原题。':'可切换科目或范围，也可以导入自己的题库继续练。'}</p><button class="button" id="emptyImport">导入题库</button></div>`;$('emptyImport').onclick=()=>open('dataDialog');$('questionRound').textContent='可随时切换范围';return}
+ const q=current,multi=q.answer.length>1;$('questionBody').innerHTML=`<div class="question-meta"><span class="subject-tag ${q.subject}">${SUBJECTS[q.subject]?.name||'题目'}</span><span>${esc(q.chapter)}</span><span class="kind-tag">${kindName(q)}</span><span>${multi?'多选':'单选'}${q.year?' · '+esc(q.year)+' 年 · 第 '+esc(q.number)+' 题':''}</span></div><h3 class="question-stem">${esc(q.stem)}</h3><div class="question-options">${q.options.map((o,i)=>`<button class="question-option ${chosen.includes(i)?'selected':''} ${submitted&&q.answer.includes(i)?'correct':''} ${submitted&&chosen.includes(i)&&!q.answer.includes(i)?'wrong':''}" data-choice="${i}" ${submitted?'disabled':''} aria-pressed="${chosen.includes(i)}"><span class="letter">${String.fromCharCode(65+i)}</span><span>${esc(o)}</span></button>`).join('')}</div>${submitted?`<div class="answer-result ${feedback.correct?'':'incorrect'}" role="status"><strong>${feedback.correct?'✓ 回答正确':'再理清一次'} · 答案 ${q.answer.map(i=>String.fromCharCode(65+i)).join('、')} · ${feedback.seconds}s</strong>${esc(q.explanation)}${$('autoNext').checked?`<br><small>${feedback.correct?3:8} 秒后继续；关闭“自动下一题”可停留看解析。</small>`:''}</div>`:''}<div class="question-actions"><small>${multi?'可选择多个选项，选全且不多选才算正确。':'选择一个最合适的答案。'}</small>${submitted?'<button class="button primary" id="nextQuestion">下一题 →</button>':'<button class="button primary" id="submitAnswer">提交答案 →</button>'}</div>${!submitted?'<button class="text-button" id="skipQuestion" style="margin-top:10px">暂时跳过，不计作答</button>':''}${sourceHTML(q)}`;
+ document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{if(submitted)return;const i=+b.dataset.choice;chosen=multi?(chosen.includes(i)?chosen.filter(v=>v!==i):[...chosen,i]):[i];renderQuestion()});if(submitted)$('nextQuestion').onclick=nextQuestion;else{$('submitAnswer').onclick=submitAnswer;$('skipQuestion').onclick=nextQuestion}$('questionRound').textContent=`第 ${round} 轮 · 本轮已出现 ${roundSeen.size} 题`}
+function submitAnswer(){if(!current||submitted)return;if(!chosen.length)return toast('先选择答案');submitted=true;clearTimeout(autoHandle);const q=current,a={id:uid(),questionId:q.id,subject:q.subject,chosen:[...chosen],correct:grade(q,chosen),seconds:Math.max(0,Math.round((Date.now()-questionStarted)/1000)),date:dateKey(),at:Date.now(),question:structuredClone(q)};feedback=a;store.put('attempt',a.id,a);renderQuestion();renderQuizStats();renderHistory();if($('autoNext').checked){const id=q.id;autoHandle=setTimeout(()=>{if(current?.id===id&&submitted&&$('autoNext').checked&&view!=='progress')nextQuestion()},a.correct?3000:8000)}}
+function renderQuizStats(){const a=store.all('attempt'),correct=a.filter(x=>x.correct).length;$('quizToday').textContent=a.filter(x=>x.date===dateKey()).length;$('quizTotal').textContent=a.length;$('quizAccuracy').textContent=a.length?Math.round(correct/a.length*100)+'%':'—';$('quizUnique').textContent=new Set(a.map(x=>x.questionId)).size;$('bankCount').textContent=allQuestions().length+' 道 · 不限每日次数'}
+function renderHistory(){const a=store.all('attempt').sort((a,b)=>b.at-a.at).slice(0,12);$('historyCount').textContent=a.length?'（最近 '+a.length+' 次）':'';$('quizHistory').innerHTML=a.map(x=>`<button class="attempt-row" data-attempt="${esc(x.id)}"><b class="${x.correct?'ok':'wrong-color'}">${x.correct?'✓':'×'}</b><span>${esc(x.question?.stem||'历史题目')}</span><small>${esc(x.seconds)}s · ${esc(x.date)}</small></button>`).join('')||'<p class="muted">完成第一道题后，记录会出现在这里。</p>';document.querySelectorAll('[data-attempt]').forEach(b=>b.onclick=()=>{const a=store.get('attempt',b.dataset.attempt),q=a?.question;if(!q)return;$('answerReview').innerHTML=`<div class="question-meta">${kindName(q)} · ${a.correct?'答对':'答错'} · ${esc(a.date)}</div><h3 class="question-stem">${esc(q.stem)}</h3><p>你的答案：${a.chosen.map(i=>String.fromCharCode(65+i)).join('、')}　正确答案：${q.answer.map(i=>String.fromCharCode(65+i)).join('、')}</p><div class="answer-result">${esc(q.explanation)}</div>${sourceHTML(q)}`;open('answerDialog')})}
+for(const id of ['quizSubject','quizMode','quizKind'])$(id).onchange=()=>{roundSeen.clear();round=1;nextQuestion()};$('autoNext').onchange=()=>{clearTimeout(autoHandle);store.put('cfg','practice',{autoNext:$('autoNext').checked});if(submitted)renderQuestion()};
+// Focus timer. Timestamp-based, not interval-decrement based. Running timer is local to a tab.
+function timerKey(scope=store.scope){return 'kaoyanfuxi:timer:'+scope}
+function saveTimer(){if(timer)sessionStorage.setItem(timerKey(timer.scope),JSON.stringify(timer));else sessionStorage.removeItem(timerKey())}
+function loadTimer(){try{const t=JSON.parse(sessionStorage.getItem(timerKey())||'null');timer=t&&t.id&&['up','down'].includes(t.mode)&&Number.isFinite(t.base)&&Number.isFinite(t.since)&&Array.isArray(t.segments)?t:null}catch{timer=null}}
+function settleTimer(){if(!timer?.running)return;const now=Date.now(),elapsed=timerElapsed(timer,now),delta=Math.max(0,elapsed-timer.base);if(delta)timer.segments.push([timer.since,timer.since+delta*1000]);timer.base=elapsed;timer.running=false;saveTimer()}
+function beep(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const a=new C(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);g.gain.value=.04;o.frequency.value=660;o.start();g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.45);o.stop(a.currentTime+.45);setTimeout(()=>a.close(),600)}catch{}}
+function updateTimer(){if(timer?.running&&timer.mode==='down'&&timerElapsed(timer)>=timer.target){settleTimer();timer.finished=true;saveTimer();beep();toast('本段计时结束。可以结束记录，也可以完成关联任务。')}
+ $('timerFloat').hidden=!timer;if(timer)$('timerFloat').textContent=(timer.running?'◷ ':'Ⅱ ')+clock(timer.mode==='down'?Math.ceil(timer.target-timerElapsed(timer)):timerElapsed(timer))+' · 返回专注';$('timerIdle').hidden=!!timer;$('timerActive').hidden=!timer;$('finishTaskTimer').hidden=!timer?.taskId;document.querySelector('.timer-card').classList.toggle('timer-finished',!!timer?.finished);
+ if(!timer){$('timerClock').textContent='25:00';$('timerCaption').textContent='选一个任务，或直接开始';$('timerTitle').textContent='不赶进度，只专注此刻。';$('timerModeLabel').textContent='自由计时';$('timerFace').style.setProperty('--p',0);document.title='研途 · 把每一步，都看得见';return}
+ const elapsed=timerElapsed(timer),shown=timer.mode==='down'?Math.ceil(timer.target-elapsed):Math.floor(elapsed);$('timerClock').textContent=clock(shown);$('timerModeLabel').textContent=timer.mode==='down'?'倒计时':'正计时';$('timerCaption').textContent=timer.finished?'计时结束 · 等待记录':timer.running?'这一段，只做眼前的事':'已暂停 · 不累计暂停时间';$('timerTitle').textContent=timer.title;$('pauseTimer').textContent=timer.running?'暂停':'继续';$('pauseTimer').disabled=!!timer.finished;$('timerFace').style.setProperty('--p',timer.mode==='down'?elapsed/timer.target*100:0);document.title=clock(shown)+' · '+timer.title+' · 研途'}
+function openTimer(task=null,preset=null){const tasks=tasksFor(store,date);$('timerTask').innerHTML='<option value="">不关联任务 · 自由专注</option>'+tasks.map(t=>`<option value="${esc(t.id)}">${esc(t.title)}</option>`).join('');$('timerTask').value=task?.id||'';$('timerMode').value='down';const seconds=(preset??(task?.dur||25))*60;$('timerHours').value=Math.floor(seconds/3600);$('timerMinutes').value=Math.floor(seconds%3600/60);$('timerSeconds').value=seconds%60;$('timerCustomTitle').value=task?.title||'';setTimerMode();open('timerDialog')}
+function setTimerMode(){const up=$('timerMode').value==='up';$('timeInputs').hidden=up;for(const id of ['timerHours','timerMinutes','timerSeconds'])$(id).disabled=up}
+$('timerMode').onchange=setTimerMode;$('timerTask').onchange=()=>{const t=taskById($('timerTask').value);if(t)$('timerCustomTitle').value=t.title};
+$('timerForm').onsubmit=e=>{e.preventDefault();const mode=$('timerMode').value,h=+$('timerHours').value,m=+$('timerMinutes').value,s=+$('timerSeconds').value,target=h*3600+m*60+s;if(mode==='down'&&(![h,m,s].every(Number.isInteger)||h<0||h>24||m<0||m>59||s<0||s>59||(target<=0||target>86400)))return toast('倒计时请设为 1 秒至 24 小时');if(timer&&!confirm('结束并记录正在进行的计时，然后开始新的一段？'))return;if(timer)finishFocus(false);const t=taskById($('timerTask').value);if(t)materialize(store,t.date);timer={id:uid(),scope:store.scope,taskId:t?.id||null,title:$('timerCustomTitle').value.trim()||t?.title||'自由专注',subject:t?.subject||'',mode,target:mode==='down'?target:0,base:0,since:Date.now(),running:true,segments:[],finished:false};saveTimer();close('timerDialog');updateTimer();toast('开始计时；可随时暂停或结束')};
+function finishFocus(mark){if(!timer)return;settleTimer();const t=timer,secondsByDate={};for(const[start,end]of t.segments)for(const p of splitInterval(start,end))secondsByDate[p.date]=(secondsByDate[p.date]||0)+p.seconds;timer=null;sessionStorage.removeItem(timerKey(t.scope));for(const[d,seconds]of Object.entries(secondsByDate)){if(seconds<=0)continue;const id=t.id+'-'+d;store.put('focus',id,{id,date:d,seconds,taskId:t.taskId,title:t.title,subject:t.subject,at:Date.now()})}if(mark&&t.taskId){const task=store.get('task',t.taskId);if(task)store.put('task',task.id,{...task,done:true})}render();toast(mark?'已记录专注时间，并勾选任务':'本次计时已记录')}
+$('pauseTimer').onclick=()=>{if(!timer||timer.finished)return;if(timer.running)settleTimer();else{timer.running=true;timer.since=Date.now();saveTimer()}updateTimer()};$('finishTimer').onclick=()=>finishFocus(false);$('finishTaskTimer').onclick=()=>finishFocus(true);$('timerFloat').onclick=()=>{if(view==='progress')setView('practice');document.querySelector('.timer-card').scrollIntoView({behavior:'smooth',block:'center'})};$('startFreeTimer').onclick=$('customTimer').onclick=$('sidebarTimer').onclick=()=>openTimer();document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>openTimer(null,+b.dataset.preset));setInterval(updateTimer,500);document.addEventListener('visibilitychange',updateTimer);
+// Authentication is real only when an authorized backend is configured.
+function renderCloud(){const s=cloud.status;$('syncLabel').textContent=store.error?'本机保存失败':cloud.message;$('syncBtn').className='sync-pill '+s;$('accountBtn').textContent=cloud.user?'我':'登';$('footerStorage').textContent=cloud.user?cloud.message+' · 账号隔离保存':cloud.configured?'未登录 · 数据仅保存在此浏览器':'云端尚未配置 · 仅本机保存';$('cloudUnavailable').hidden=cloud.configured;$('signedIn').hidden=!cloud.user;$('signedOut').hidden=!!cloud.user;$('accountEmail').textContent=cloud.user?.email||'';$('syncDetail').textContent=cloud.message+(cloud.lastError&&s==='error'?'：'+cloud.lastError:'');$('authSubmit').disabled=!cloud.ready;$('forgotPassword').disabled=!cloud.ready;$('resolveConflicts').hidden=!Object.keys(store.conflicts).length}
+function openAccount(){renderCloud();$('authMessage').textContent='';open('accountDialog')}
+$('accountBtn').onclick=$('syncBtn').onclick=openAccount;
+for(const b of document.querySelectorAll('[data-auth-mode]'))b.onclick=()=>{authMode=b.dataset.authMode;document.querySelectorAll('[data-auth-mode]').forEach(x=>x.classList.toggle('active',x===b));$('authSubmit').textContent=authMode==='login'?'登录并同步':'创建账号';$('authPassword').autocomplete=authMode==='login'?'current-password':'new-password'};
+function readableError(e){const m=e?.message||String(e);return ({'Invalid login credentials':'邮箱或密码不正确','Email not confirmed':'请先在邮箱中确认注册','User already registered':'此邮箱已注册，请直接登录','Failed to fetch':'网络暂不可用，请稍后重试'})[m]||m}
+$('authForm').onsubmit=async e=>{e.preventDefault();$('authSubmit').disabled=true;$('authMessage').textContent='正在处理…';try{const email=$('authEmail').value.trim(),password=$('authPassword').value;if(authMode==='login'){await cloud.login(email,password);$('authMessage').textContent='已登录。同步状态以页面提示为准。'}else{const active=await cloud.signup(email,password);$('authMessage').textContent=active?'账号已创建。':'请查看邮箱中的确认邮件；确认后再登录。'}$('authPassword').value=''}catch(err){$('authMessage').textContent=readableError(err)}finally{renderCloud()}};
+$('forgotPassword').onclick=async()=>{if(!$('authEmail').checkValidity()||!$('authEmail').value)return toast('请先填写有效邮箱');try{await cloud.reset($('authEmail').value.trim());$('authMessage').textContent='请求已提交。若该邮箱已注册且邮件服务可用，将收到重设密码邮件。'}catch(e){$('authMessage').textContent=readableError(e)}};
+$('syncNow').onclick=()=>cloud.sync();$('logout').onclick=async()=>{try{if(timer&&confirm('退出前，记录本次计时？'))finishFocus(false);await cloud.logout();toast('已退出当前设备；未上传记录仍保留在该账号的本机缓存中')}catch(e){toast(readableError(e))}};
+$('mergeGuest').onclick=()=>{if(!cloud.user)return;if(!confirm('将此浏览器访客记录合并到当前账号？同一编号已存在的记录将跳过，不覆盖云端。'))return;try{const guest=JSON.parse(localStorage.getItem('kaoyanfuxi:v4:guest')||'null');let n=0;for(const r of Object.values(guest?.records||{})){const k=r.bucket+':'+r.record_id;if(!store.records[k]){store.put(r.bucket,r.record_id,r.payload,r.deleted);n++}}render();cloud.sync();toast(`已合并 ${n} 条记录；可查看同步状态`)}catch(e){toast('访客记录无法读取：'+readableError(e))}};
+cloud.addEventListener('account',()=>{if(timer?.running)settleTimer();loadTimer();roundSeen.clear();round=1;$('autoNext').checked=store.get('cfg','practice')?.autoNext!==false;nextQuestion();render()});
+cloud.addEventListener('change',()=>{renderCloud();if(['synced','conflict'].includes(cloud.status))render()});cloud.addEventListener('recovery',()=>open('passwordDialog'));
+$('passwordForm').onsubmit=async e=>{e.preventDefault();try{await cloud.password($('newPassword').value);$('newPassword').value='';$('passwordMessage').textContent='密码已更新。'}catch(e){$('passwordMessage').textContent=readableError(e)}};
+function renderConflicts(){$('conflictList').innerHTML=Object.entries(store.conflicts).map(([k,c])=>`<div class="conflict-item"><h3>${esc(c.local.payload?.title||c.local.payload?.text?.slice(0,50)||k)}</h3><small>本机版本</small><pre>${esc(JSON.stringify(c.local.payload,null,2))}</pre><small>云端版本（版本号 ${c.remote.revision}）</small><pre>${esc(JSON.stringify(c.remote.payload,null,2))}</pre><div class="inline-actions"><button class="button" data-conflict="${esc(k)}" data-choice-version="local">保留本机版本</button><button class="button" data-conflict="${esc(k)}" data-choice-version="remote">使用云端版本</button></div></div>`).join('')||'<p class="muted">没有待处理的冲突。</p>';document.querySelectorAll('[data-conflict]').forEach(b=>b.onclick=()=>{store.resolve(b.dataset.conflict,b.dataset.choiceVersion);renderConflicts();render();cloud.sync()})}
+$('resolveConflicts').onclick=()=>{renderConflicts();open('conflictDialog')};
+// Data imports merge after explicit confirmation. Imported exam text stays private.
+function downloadJSON(name,data){const u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}
+$('exportData').onclick=()=>downloadJSON('研途备份-'+dateKey()+'.json',store.export());
+$('importData').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>20000000)throw Error('备份超过 20MB，请拆分或检查文件');const data=JSON.parse(await file.text());if(confirm('将备份合并到当前空间？同一记录编号会采用导入值。建议先导出当前备份。')){store.import(data);render();nextQuestion();toast('备份已合并')}}catch(err){toast(readableError(err))}e.target.value=''};
+$('questionTemplate').onclick=()=>downloadJSON('研途题库导入模板.json',{format:'kaoyanfuxi-question-bank-v1',notes:'示例为原创。真题 kind 填 past，并提供 year、number、source。answer 使用0起始编号，多选如[0,2]。导入前请核验答案和使用权限。',questions:[{id:'my-question-001',subject:'eng',chapter:'语法',kind:'original',year:null,number:'',stem:'She is used to ___ detailed notes.',options:['write','writing','wrote','writes'],answer:[1],explanation:'be used to 后接名词或动名词，表示习惯于。',source:{title:'Cambridge English Grammar Today',url:'https://dictionary.cambridge.org/grammar/british-grammar/word-choice-used-to-and-be-used-to'}}]});
+$('importQuestions').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>12000000)throw Error('题库超过 12MB，请分批导入');const questions=validateQuestions(JSON.parse(await file.text()));if(!confirm(`导入 ${questions.length} 道题到当前${cloud.user?'账号':'访客空间'}？请确认有权使用这些题目，且年份和答案已核验。`))return;for(const q of questions)store.put('question',q.id,q);$('importStatus').textContent=`已导入 ${questions.length} 道题。真题标签表示用户声明的来源，未伪称官方核验。`;roundSeen.clear();nextQuestion();toast('题库已更新')}catch(err){$('importStatus').textContent=readableError(err)}finally{e.target.value=''}};
+$('rebuildPlan').onclick=()=>{if(!confirm('重建所选日的默认计划？保留已完成任务和自建任务；未完成的自动生成任务会按当前设置重排。'))return;materialize(store,date);for(const t of store.all('task').filter(t=>t.date===date&&!t.done&&t.id.startsWith(date+'-')))store.del('task',t.id);for(const t of generate(date,cfg(store))){const existing=store.get('task',t.id);if(!existing?.done)store.put('task',t.id,t)}render();toast('当日默认计划已重建')};
+function search(){const q=$('searchInput').value.trim().toLowerCase();if(!q){$('searchResults').innerHTML='<p class="muted">可检索已保存任务、当前日期的计划和题库。保留模拟卷中的题目不会出现在检索结果中。</p>';return}const saved=store.all('task'),map=new Map([...saved,...tasksFor(store,date)].map(t=>[t.id,t])),ts=[...map.values()].filter(t=>(t.title+' '+t.detail+' '+t.date+' '+SUBJECTS[t.subject]?.name).toLowerCase().includes(q)).slice(0,30),qs=available(allQuestions(),[],{protect:cfg(store).protectReserved}).filter(t=>(t.stem+' '+t.chapter+' '+t.year).toLowerCase().includes(q)).slice(0,20);$('searchResults').innerHTML=ts.map(t=>`<button class="search-result" data-search-task="${esc(t.id)}"><b>${esc(t.title)}</b><small>${esc(t.date)} · ${SUBJECTS[t.subject]?.name||''} · ${t.done?'已完成':'未完成'}</small></button>`).join('')+qs.map(t=>`<button class="search-result" data-search-question="${esc(t.id)}"><b>${esc(t.stem)}</b><small>${kindName(t)} · ${esc(t.chapter)}</small></button>`).join('')||'<p class="muted">没有找到相关内容。</p>';document.querySelectorAll('[data-search-task]').forEach(b=>b.onclick=()=>{const t=map.get(b.dataset.searchTask);date=t.date;close('searchDialog');setView('today');editTask(t)});document.querySelectorAll('[data-search-question]').forEach(b=>b.onclick=()=>{clearTimeout(autoHandle);current=allQuestions().find(t=>t.id===b.dataset.searchQuestion);chosen=[];submitted=false;feedback=null;questionStarted=Date.now();close('searchDialog');setView('practice');renderQuestion()})}
+function openSearch(){open('searchDialog');$('searchInput').focus();search()}
+$('searchBtn').onclick=openSearch;$('searchInput').oninput=search;document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openSearch()}});
+// Navigation and plan controls.
+for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>setView(b.dataset.view);
+for(const b of document.querySelectorAll('[data-close]'))b.onclick=()=>close(b.dataset.close);
+$('prevDay').onclick=()=>{date=addDays(date,-1);render()};$('nextDay').onclick=()=>{date=addDays(date,1);render()};$('todayBtn').onclick=()=>{date=dateKey();render()};$('activeDate').onchange=e=>{if(validDate(e.target.value)){date=e.target.value;render()}};
+$('weekStrip').onclick=e=>{const b=e.target.closest('[data-date]');if(b){date=b.dataset.date;render()}};
+$('boards').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.toggle)toggleTask(b.dataset.toggle);if(b.dataset.editTask)editTask(taskById(b.dataset.editTask));if(b.dataset.timeTask)openTimer(taskById(b.dataset.timeTask));if(b.dataset.addSubject)editTask(null,b.dataset.addSubject)};
+$('addTask').onclick=()=>editTask();$('settingsBtn').onclick=$('progressSettings').onclick=$('examBtn').onclick=openSettings;$('dataBtn').onclick=$('questionImportBtn').onclick=()=>open('dataDialog');
+$('carryBtn').onclick=()=>{const prev=addDays(date,-1);if(!store.get('day',prev))return toast('昨日没有实际保存的任务，不自动创造逾期记录');const pending=tasksFor(store,prev).filter(t=>!t.done);if(!pending.length)return toast('昨日没有未完成任务');if(!confirm(`把昨日 ${pending.length} 项未完成任务移到 ${date}？同名同范围的今日任务会跳过，以免重复。`))return;materialize(store,date);const now=tasksFor(store,date);let n=0;for(const t of pending){if(now.some(v=>v.title===t.title&&v.detail===t.detail))continue;store.put('task',t.id,{...t,date,detail:t.detail+' · 从 '+prev+' 顺延'});n++}render();toast(`已移动 ${n} 项；同名重复项未移动`)};
+$('dailyNote').oninput=e=>{store.put('note',date,{id:date,text:e.target.value});$('noteState').textContent=cloud.user?'已存本机 · 等待同步确认':'已保存在本机'};
+store.addEventListener('change',()=>{clearTimeout(renderHandle);renderHandle=setTimeout(()=>{renderMetrics();renderQuizStats();renderStages();$('storageWarning').hidden=!store.error;$('storageWarning').textContent=store.error||''},50)});
+$('autoNext').checked=store.get('cfg','practice')?.autoNext!==false;loadTimer();nextQuestion();render();cloud.init();
+if(new URLSearchParams(location.search).get('view')==='practice')setView('practice');

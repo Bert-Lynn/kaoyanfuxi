@@ -1,0 +1,1 @@
+{"name":"kaoyanfuxi-study-desk","private":true,"version":"4.0.0","type":"module","scripts":{"test":"node --test tests/core.test.mjs"}}

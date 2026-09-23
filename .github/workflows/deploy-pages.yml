@@ -1,9 +1,8 @@
-name: Deploy static site to GitHub Pages
+name: Test and deploy Study Desk
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -24,15 +23,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Pages
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript and run tests
+        run: |
+          node --check app.js
+          node --check cloud.js
+          node --check core.js
+          node --check questions.js
+          node --test tests/core.test.mjs
+      - name: Build public assets
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/build.mjs
+      - name: Configure Pages
         uses: actions/configure-pages@v5
-
-      - name: Upload static site
+      - name: Upload website
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
-
-      - name: Deploy to GitHub Pages
+          path: _site
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
