@@ -429,3 +429,131 @@ dialog{padding:21px 18px;border-radius:18px}
 .quiz-controls select{font-size:11px}
 }
 
+/* 4.1 — readability + restrained motion */
+body{font-size:15px}
+h2{font-size:22px}
+h3{font-size:17px}
+small{font-size:13px}
+.nav-item{font-size:14px;padding-top:14px;padding-bottom:14px}
+.breadcrumb{font-size:12px}
+.sync-pill{font-size:11px}
+.intro h1{font-size:clamp(29px,2.75vw,43px)}
+.intro p{font-size:14px}
+.intro-note{font-size:11px}
+.metric-label{font-size:12px}
+.metric strong{font-size:31px}
+.metric>small,.metric.featured>div>small{font-size:11px}
+.section-heading h2{font-size:23px}
+.section-heading h2 span{font-size:12px}
+.button{font-size:13px}
+.button.small{font-size:12px}
+.week-day .daytop{font-size:11px}
+.week-day b{font-size:18px}
+.week-day small{font-size:10px}
+.board-head h3{font-size:18px}
+.board-head small{font-size:9px}
+.board-head>b{font-size:13px}
+.task-title{font-size:14px;line-height:1.75}
+.task-detail{font-size:12px;line-height:1.85}
+.task-controls .time-tag,.task-controls button{font-size:11px}
+.board-add{font-size:11px}
+.card-head h2{font-size:21px}
+.tiny-tag{font-size:10px}
+.quiz-stats b{font-size:25px}
+.quiz-stats span{font-size:11px}
+.quiz-controls select{font-size:11px}
+.question-meta{font-size:11px}
+.question-stem{font-size:18px;line-height:1.9}
+.question-option{font-size:14px;line-height:1.72;padding:13px 15px}
+.question-source{font-size:11px}
+.answer-result{font-size:13px}
+.quiz-bottom,.switch-label{font-size:11px}
+.attempt-row{font-size:12px}
+.timer-card h2{font-size:16px}
+.timer-title{font-size:12px}
+.timer-presets button{font-size:11px}
+.timer-buttons .button{font-size:11px}
+.timer-note{font-size:9px}
+.rest-card h2{font-size:18px}
+.rest-card a b{font-size:12px}
+.rest-card a span>small{font-size:9px}
+.reflection h2{font-size:18px}
+.reflection textarea{font-size:13px}
+.stage-card h3{font-size:17px}
+.stage-card p,.roadmap-grid p,.muted{font-size:12px}
+.roadmap-grid b{font-size:15px}
+label{font-size:12px}
+dialog input,dialog select{font-size:13px}
+.notice{font-size:13px}
+
+@property --p{syntax:"<number>";inherits:false;initial-value:0}
+.progress-ring,.timer-face{transition:--p .55s cubic-bezier(.22,.8,.3,1)}
+.intro>div:first-child{animation:fadeUp .55s ease both}
+.intro-note{animation:fadeIn .7s .12s ease both}
+.metric{animation:fadeUp .48s ease both}
+.metric:nth-child(2){animation-delay:.05s}
+.metric:nth-child(3){animation-delay:.1s}
+.metric:nth-child(4){animation-delay:.15s}
+.subject-board{animation:fadeUp .5s ease both;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.subject-board:nth-child(2){animation-delay:.06s}
+.subject-board:nth-child(3){animation-delay:.12s}
+.subject-board:hover{transform:translateY(-3px);box-shadow:0 12px 34px #273c2e10;border-color:#dce3d6}
+.card,.rest-card,.stage-card{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.card:hover,.rest-card:hover,.stage-card:hover{transform:translateY(-2px);box-shadow:0 12px 32px #273c2e0d}
+.nav-item{position:relative;transition:background .18s ease,color .18s ease,transform .18s ease}
+.nav-item:hover{transform:translateX(2px)}
+.nav-item.active:before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:#6f8f67;animation:scaleY .25s ease both}
+.button:hover:not(:disabled),.icon-button:hover:not(:disabled){transform:translateY(-1px)}
+.task-check{transition:transform .16s ease,background .16s ease,border-color .16s ease}
+.task.done .task-check{animation:checkPop .24s ease both}
+.question-option{transition:transform .15s ease,border-color .15s ease,background .15s ease}
+.question-option:hover:not(:disabled){transform:translateY(-1px)}
+.question-option.selected{animation:choicePop .18s ease both}
+.week-day{transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease}
+.week-day:hover{transform:translateY(-2px)}
+.sync-pill.syncing i{box-shadow:0 0 0 0 #7a8dcb55;animation:syncPulse 1.2s infinite}
+.toast{animation:toastIn .22s ease both}
+dialog[open]{animation:dialogIn .22s ease both}
+dialog[open]::backdrop{animation:backdropIn .2s ease both}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scaleY{from{transform:scaleY(.25);opacity:0}to{transform:scaleY(1);opacity:1}}
+@keyframes checkPop{0%{transform:scale(.78)}65%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes choicePop{0%{transform:scale(.99)}100%{transform:scale(1)}}
+@keyframes syncPulse{0%{box-shadow:0 0 0 0 #7a8dcb55}70%{box-shadow:0 0 0 6px #7a8dcb00}100%{box-shadow:0 0 0 0 #7a8dcb00}}
+@keyframes dialogIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes backdropIn{from{opacity:0}to{opacity:1}}
+@keyframes toastIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+@media(max-width:680px){
+ body{font-size:15px}
+ .nav-item{font-size:12px}
+ .breadcrumb{font-size:11px}
+ .intro h1{font-size:30px}
+ .intro p{font-size:13px}
+ .metric strong{font-size:27px}
+ .metric-label{font-size:11px}
+ .metric>small,.metric.featured>div>small{font-size:9px}
+ .section-heading h2{font-size:21px}
+ .week-day b{font-size:16px}
+ .week-day small{font-size:8px}
+ .board-head h3{font-size:17px}
+ .task-title{font-size:15px}
+ .task-detail{font-size:13px}
+ .task-controls button,.task-controls .time-tag{font-size:11px}
+ .card-head h2{font-size:19px}
+ .quiz-stats span{font-size:9px}
+ .question-stem{font-size:17px}
+ .question-option{font-size:15px;line-height:1.7}
+ .answer-result{font-size:13px}
+ .timer-card h2{font-size:17px}
+ .rest-card h2{font-size:20px}
+ .rest-card a b{font-size:13px}
+ .reflection textarea{font-size:13px}
+ .subject-board:hover,.card:hover,.rest-card:hover,.stage-card:hover{transform:none}
+}
+
+@media(prefers-reduced-motion:reduce){
+ .intro>div:first-child,.intro-note,.metric,.subject-board,.task.done .task-check,.question-option.selected,.toast,dialog[open],dialog[open]::backdrop{animation:none!important}
+}
