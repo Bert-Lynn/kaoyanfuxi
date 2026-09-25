@@ -18,6 +18,6 @@ if(url&&key){
  await writeFile(path.join(out,'config.js'),'// Public configuration only; database access is protected by RLS.\nexport const CLOUD_CONFIG = '+JSON.stringify({url:u.origin,publishableKey:key})+';\n');
 }
 const html=await readFile(path.join(out,'index.html'),'utf8');
-if(!html.includes('app.js?v=4')||!html.includes('ui.css?v=5'))throw Error('Entry-point validation failed.');
+if(!html.includes('app.js?v=5')||!html.includes('ui.css?v=5'))throw Error('Entry-point validation failed.');
 await writeFile(path.join(out,'.nojekyll'),'');
 console.log(`Staged ${files.length} public assets. Cloud configuration: ${url?'configured (requires schema and Auth setup)':'not configured; guest/local mode'}.`);
