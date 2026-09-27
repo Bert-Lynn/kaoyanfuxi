@@ -1,4 +1,4 @@
-import {VERSION,SUBJECTS,BASE,Store,uid,esc,link,dateKey,validDate,pd,addDays,daysBetween,weekDays,mins,clock,cfg,generate,tasksFor,materialize,stats,progress,timerElapsed,splitInterval,validateQuestions} from './core.js?v=5';
+import {VERSION,SUBJECTS,BASE,Store,uid,esc,link,dateKey,validDate,pd,addDays,daysBetween,weekDays,mins,clock,cfg,generate,tasksFor,materialize,stats,progress,timerElapsed,splitInterval,validateQuestions} from './core.js?v=6';
 import {QUESTIONS,available,grade,shuffle} from './questions.js';
 import {Cloud} from './cloud.js';
 const $=id=>document.getElementById(id), store=new Store(), cloud=new Cloud(store);
