@@ -73,15 +73,28 @@ export function sequentialState(store,date,c=cfg(store)){
   anki:missingRange(anki,1202,10)
  }
 }
-const LEG_CLASS_START='2026-09-28';
-const LEG_CLASSES=[
- ['马原选择题技巧1','2026-09-21'],['马原选择题技巧2','2026-09-22'],['马原选择题技巧3','2026-09-23'],['马原选择题技巧4','2026-09-28'],
- ['马原分析题模板1','2026-09-29'],['马原分析题模板2','2026-09-30'],
- ['史纲选择题技巧1','2026-10-05'],['史纲选择题技巧2','2026-10-06'],['史纲分析题模板1','2026-10-07'],['史纲分析题模板2','2026-10-12'],
- ['思修法基选择题技巧1','2026-10-13'],['思修法基选择题技巧2','2026-10-14'],['思修法基分析题模板','2026-10-15'],
- ['毛中特 · 新思想选择题技巧1','2026-10-19'],['毛中特 · 新思想选择题技巧2','2026-10-20'],['新思想选择题技巧3','2026-10-21'],['新思想选择题技巧4','2026-10-22'],['新思想选择题技巧5','2026-10-26'],
- ['毛中特 · 新思想分析题模板1','2026-10-27'],['毛中特 · 新思想分析题模板2','2026-10-28']
-];
+const LEG_CLASS_PLAN={
+ '2026-09-28':['马原选择题技巧1','2026-09-21'],
+ '2026-09-29':['马原选择题技巧2','2026-09-22'],
+ '2026-09-30':['马原选择题技巧3','2026-09-23'],
+ '2026-10-01':['马原选择题技巧4','2026-09-28'],
+ '2026-10-02':['马原分析题模板1','2026-09-29'],
+ '2026-10-03':['马原分析题模板2','2026-09-30'],
+ '2026-10-05':['史纲选择题技巧1','2026-10-05'],
+ '2026-10-06':['史纲选择题技巧2','2026-10-06'],
+ '2026-10-07':['史纲分析题模板1','2026-10-07'],
+ '2026-10-12':['史纲分析题模板2','2026-10-12'],
+ '2026-10-13':['思修法基选择题技巧1','2026-10-13'],
+ '2026-10-14':['思修法基选择题技巧2','2026-10-14'],
+ '2026-10-15':['思修法基分析题模板','2026-10-15'],
+ '2026-10-19':['毛中特 · 新思想选择题技巧1','2026-10-19'],
+ '2026-10-20':['毛中特 · 新思想选择题技巧2','2026-10-20'],
+ '2026-10-21':['新思想选择题技巧3','2026-10-21'],
+ '2026-10-22':['新思想选择题技巧4','2026-10-22'],
+ '2026-10-26':['新思想选择题技巧5','2026-10-26'],
+ '2026-10-27':['毛中特 · 新思想分析题模板1','2026-10-27'],
+ '2026-10-28':['毛中特 · 新思想分析题模板2','2026-10-28']
+};
 const LEG_EXTRAS={
  '2026-10-01':[['leg-homework','腿姐 · 马原课后作业3','作业任务 · 按原计划日期完成',60]],
  '2026-10-02':[['leg-homework','腿姐 · 马原课后作业4','作业任务 · 按原计划日期完成',60]],
@@ -132,8 +145,8 @@ export function generate(date,c,seq=null){const out=[];if(!validDate(date)||date
  if(m===11){t='政治背诵 + 已发布模拟题';detail='肖四 / 肖八等按实际到书时间安排，不把预计出版月份当作已发布'}
  if(m===12){t='冲刺背诵 + 大牙材料训练';detail='按实际资料和剩余时间微调；保留错题回顾'}
  add('politics','pol',t,detail,60);
- const legDay=daysBetween(date,LEG_CLASS_START);
- if(legDay>=0&&legDay<LEG_CLASSES.length){const [lesson,original]=LEG_CLASSES[legDay];add('leg-class','pol',`腿姐技巧班 · ${lesson}`,`上课任务 · 从 9/28 起每天 1 节 · 原计划 ${original.slice(5).replace('-','/')}`,120,{pri:'high'})}
+ const legClass=LEG_CLASS_PLAN[date];
+ if(legClass){const [lesson,original]=legClass;const catchup=original!==date;add('leg-class','pol',`腿姐技巧班 · ${lesson}`,catchup?`补课 · 原计划 ${original.slice(5).replace('-','/')} · 追赶至 10/3，之后恢复原表`:'上课任务 · 按腿姐原计划日期执行',120,{pri:'high'})}
  for(const [id,title,d,mins] of LEG_EXTRAS[date]||[])add(id,'pol',title,d,mins);
  return out;
 }
@@ -146,12 +159,14 @@ function reconcileSequential(saved,planned,date){
 }
 function isPoliticsPlanTask(t,date){return t.id===date+'-politics'||t.id.startsWith(date+'-leg-')}
 function reconcilePolitics(saved,planned,date){
- const out=[...saved],byId=new Map(out.map((x,i)=>[x.id,i]));
- for(const p of planned.filter(t=>isPoliticsPlanTask(t,date))){
+ const wanted=planned.filter(t=>isPoliticsPlanTask(t,date)),wantedIds=new Set(wanted.map(t=>t.id));
+ const out=saved.filter(t=>!(t.id.startsWith(date+'-leg-')&&!t.done&&!wantedIds.has(t.id)));
+ const byId=new Map(out.map((x,i)=>[x.id,i]));
+ for(const p of wanted){
   const i=byId.get(p.id);
   if(i===undefined){byId.set(p.id,out.length);out.push(p);continue}
   const old=out[i];
-  if(!old.done&&p.id===date+'-politics'&&old.title==='肖1000 + 腿姐技巧班')out[i]=p
+  if(!old.done&&(p.id===date+'-politics'&&old.title==='肖1000 + 腿姐技巧班'||p.id.startsWith(date+'-leg-')))out[i]=p
  }
  return out
 }
@@ -171,10 +186,12 @@ export function materialize(store,date){
   for(const t of savedSeq)if(!wantedIds.has(t.id))store.del('task',t.id);
   for(const t of wanted)store.put('task',t.id,t)
  }
- for(const p of planned.filter(t=>isPoliticsPlanTask(t,date))){
+ const wantedPolitics=planned.filter(t=>isPoliticsPlanTask(t,date)),wantedPoliticsIds=new Set(wantedPolitics.map(t=>t.id));
+ for(const old of store.all('task').filter(t=>t.date===date&&t.id.startsWith(date+'-leg-')&&!t.done))if(!wantedPoliticsIds.has(old.id))store.del('task',old.id);
+ for(const p of wantedPolitics){
   const old=store.get('task',p.id);
   if(!old)store.put('task',p.id,p);
-  else if(!old.done&&p.id===date+'-politics'&&old.title==='肖1000 + 腿姐技巧班')store.put('task',p.id,p)
+  else if(!old.done&&(p.id===date+'-politics'&&old.title==='肖1000 + 腿姐技巧班'||p.id.startsWith(date+'-leg-')))store.put('task',p.id,p)
  }
 }
 export function stats(tasks){const done=tasks.filter(t=>t.done).length;return{done,total:tasks.length,pct:tasks.length?Math.round(done/tasks.length*100):0,minutes:tasks.reduce((n,t)=>n+(+t.dur||0),0)}}
