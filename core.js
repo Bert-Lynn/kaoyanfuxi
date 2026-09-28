@@ -73,6 +73,39 @@ export function sequentialState(store,date,c=cfg(store)){
   anki:missingRange(anki,1202,10)
  }
 }
+const LEG_CLASS_START='2026-09-28';
+const LEG_CLASSES=[
+ ['马原选择题技巧1','2026-09-21'],['马原选择题技巧2','2026-09-22'],['马原选择题技巧3','2026-09-23'],['马原选择题技巧4','2026-09-28'],
+ ['马原分析题模板1','2026-09-29'],['马原分析题模板2','2026-09-30'],
+ ['史纲选择题技巧1','2026-10-05'],['史纲选择题技巧2','2026-10-06'],['史纲分析题模板1','2026-10-07'],['史纲分析题模板2','2026-10-12'],
+ ['思修法基选择题技巧1','2026-10-13'],['思修法基选择题技巧2','2026-10-14'],['思修法基分析题模板','2026-10-15'],
+ ['毛中特 · 新思想选择题技巧1','2026-10-19'],['毛中特 · 新思想选择题技巧2','2026-10-20'],['新思想选择题技巧3','2026-10-21'],['新思想选择题技巧4','2026-10-22'],['新思想选择题技巧5','2026-10-26'],
+ ['毛中特 · 新思想分析题模板1','2026-10-27'],['毛中特 · 新思想分析题模板2','2026-10-28']
+];
+const LEG_EXTRAS={
+ '2026-10-01':[['leg-homework','腿姐 · 马原课后作业3','作业任务 · 按原计划日期完成',60]],
+ '2026-10-02':[['leg-homework','腿姐 · 马原课后作业4','作业任务 · 按原计划日期完成',60]],
+ '2026-10-03':[['leg-homework','腿姐 · 马原课后作业5','作业任务 · 按原计划日期完成',60]],
+ '2026-10-04':[['leg-review','腿姐 · 复盘任务','复盘任务 · 按原计划自由安排',0]],
+ '2026-10-08':[['leg-homework','腿姐 · 史纲课后作业1','作业任务 · 按原计划日期完成',60]],
+ '2026-10-09':[['leg-homework','腿姐 · 史纲课后作业2','作业任务 · 按原计划日期完成',60]],
+ '2026-10-10':[['leg-review','腿姐 · 复盘任务','复盘任务 · 按原计划自由安排',0]],
+ '2026-10-11':[['leg-review','腿姐 · 复盘任务','复盘任务 · 按原计划自由安排',0]],
+ '2026-10-16':[['leg-homework','腿姐 · 史纲课后作业3 + 背诵','作业 + 背诵任务 · 原计划合计约 2h',120]],
+ '2026-10-17':[['leg-homework','腿姐 · 史纲法基课后作业1 + 背诵','作业 + 背诵任务 · 按图中原计划执行',120]],
+ '2026-10-18':[['leg-recitation','腿姐 · 背诵任务','背诵任务 · 按原计划执行',0]],
+ '2026-10-19':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0]],
+ '2026-10-20':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0]],
+ '2026-10-21':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0]],
+ '2026-10-22':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0]],
+ '2026-10-23':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0],['leg-homework','腿姐 · 新思想课后作业1 + 背诵','作业 + 背诵任务 · 原计划合计约 2h',120]],
+ '2026-10-24':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0],['leg-homework','腿姐 · 新思想课后作业2 + 背诵','作业 + 背诵任务 · 原计划合计约 2h',120]],
+ '2026-10-25':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0],['leg-recitation','腿姐 · 背诵任务','背诵任务 · 按原计划执行',0]],
+ '2026-10-26':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0]],
+ '2026-10-27':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0]],
+ '2026-10-28':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0]],
+ '2026-10-29':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0],['leg-homework','腿姐 · 新思想课后作业3 + 背诵','作业 + 背诵任务 · 原计划合计约 2h',120]]
+};
 export function generate(date,c,seq=null){const out=[];if(!validDate(date)||date<c.start)return out;const n=Math.max(0,daysBetween(date,c.start));
  const add=(id,subject,title,detail,dur=0,extra={})=>out.push({id:date+'-'+id,date,subject,title,detail,dur,done:false,pri:'normal',...extra});
  const cycle=(anchor,years)=>{const d=daysBetween(date,anchor);return d<0?{year:null,phase:0}:{year:years[Math.floor(d/4)],phase:d%4}};
@@ -94,11 +127,15 @@ export function generate(date,c,seq=null){const out=[];if(!validDate(date)||date
  const years=[2025,2023,2021,2020,2019,2018,2017,2016];const e=cycle(c.enAnchor,years.slice(Math.max(0,years.indexOf(+c.enStartYear))));
  if(e.year){const phases=['下午套题作答','阅读订正','完型 + 新题型订正','翻译 + 作文订正'];add('en-paper','eng',`${e.year} 年英语 · ${phases[e.phase]}`,'2022 / 2024 / 2026 年保留考前模拟',e.phase===0?180:0,{pri:'high'})}
  const m=pd(date).getMonth()+1;let t='政治 · 当日复习',detail='按实际安排调整';
- if(m===9){t=n<c.historyLeft?'史纲视频 1 节 + 徐涛选择题':'史纲 / 马原复盘 + 选择题';detail='9 月政治约 1h；马原课程已完成，史纲起点剩 4 节'}
- if(m===10){t='肖1000 + 腿姐技巧班';detail=`马原起点 ${c.xiaoMarxDone}/16 章 · 史纲 20 章；按当日课表和章节推进`}
+ if(m===9){t=n<c.historyLeft?'史纲视频 1 节 + 徐涛选择题':'史纲 / 马原复盘 + 选择题';detail='9 月政治约 1h；按现有选择题与复盘安排推进'}
+ if(m===10){t='肖1000 · 当日章节';detail=`保留肖1000主线 · 马原起点 ${c.xiaoMarxDone}/16 章 · 史纲 20 章；按实际章节推进`}
  if(m===11){t='政治背诵 + 已发布模拟题';detail='肖四 / 肖八等按实际到书时间安排，不把预计出版月份当作已发布'}
  if(m===12){t='冲刺背诵 + 大牙材料训练';detail='按实际资料和剩余时间微调；保留错题回顾'}
- add('politics','pol',t,detail,60);return out;
+ add('politics','pol',t,detail,60);
+ const legDay=daysBetween(date,LEG_CLASS_START);
+ if(legDay>=0&&legDay<LEG_CLASSES.length){const [lesson,original]=LEG_CLASSES[legDay];add('leg-class','pol',`腿姐技巧班 · ${lesson}`,`上课任务 · 从 9/28 起每天 1 节 · 原计划 ${original.slice(5).replace('-','/')}`,120,{pri:'high'})}
+ for(const [id,title,d,mins] of LEG_EXTRAS[date]||[])add(id,'pol',title,d,mins);
+ return out;
 }
 const SEQ_SUFFIXES=['-redbook','-words-review','-bio-maps','-bio-notes','-anki','-anki-review'];
 function isSeqTask(t,date){return SEQ_SUFFIXES.some(s=>t.id===date+s)}
@@ -107,19 +144,38 @@ function reconcileSequential(saved,planned,date){
  if(savedSeq.some(t=>t.done))return saved;
  return [...savedOther,...planned.filter(t=>isSeqTask(t,date))]
 }
+function isPoliticsPlanTask(t,date){return t.id===date+'-politics'||t.id.startsWith(date+'-leg-')}
+function reconcilePolitics(saved,planned,date){
+ const out=[...saved],byId=new Map(out.map((x,i)=>[x.id,i]));
+ for(const p of planned.filter(t=>isPoliticsPlanTask(t,date))){
+  const i=byId.get(p.id);
+  if(i===undefined){byId.set(p.id,out.length);out.push(p);continue}
+  const old=out[i];
+  if(!old.done&&p.id===date+'-politics'&&old.title==='肖1000 + 腿姐技巧班')out[i]=p
+ }
+ return out
+}
 export function tasksFor(store,date){
  const c=cfg(store),planned=generate(date,c,sequentialState(store,date,c));
  if(!store.get('day',date))return planned;
- return reconcileSequential(store.all('task').filter(t=>t.date===date),planned,date)
+ let saved=store.all('task').filter(t=>t.date===date);
+ saved=reconcileSequential(saved,planned,date);
+ return reconcilePolitics(saved,planned,date)
 }
 export function materialize(store,date){
- const planned=generate(date,cfg(store),sequentialState(store,date,cfg(store)));
+ const c=cfg(store),planned=generate(date,c,sequentialState(store,date,c));
  if(!store.get('day',date)){for(const t of planned)store.put('task',t.id,t);store.put('day',date,{id:date});return}
  const saved=store.all('task').filter(t=>t.date===date),savedSeq=saved.filter(t=>isSeqTask(t,date));
- if(savedSeq.some(t=>t.done))return;
- const wanted=planned.filter(t=>isSeqTask(t,date)),wantedIds=new Set(wanted.map(t=>t.id));
- for(const t of savedSeq)if(!wantedIds.has(t.id))store.del('task',t.id);
- for(const t of wanted)store.put('task',t.id,t)
+ if(!savedSeq.some(t=>t.done)){
+  const wanted=planned.filter(t=>isSeqTask(t,date)),wantedIds=new Set(wanted.map(t=>t.id));
+  for(const t of savedSeq)if(!wantedIds.has(t.id))store.del('task',t.id);
+  for(const t of wanted)store.put('task',t.id,t)
+ }
+ for(const p of planned.filter(t=>isPoliticsPlanTask(t,date))){
+  const old=store.get('task',p.id);
+  if(!old)store.put('task',p.id,p);
+  else if(!old.done&&p.id===date+'-politics'&&old.title==='肖1000 + 腿姐技巧班')store.put('task',p.id,p)
+ }
 }
 export function stats(tasks){const done=tasks.filter(t=>t.done).length;return{done,total:tasks.length,pct:tasks.length?Math.round(done/tasks.length*100):0,minutes:tasks.reduce((n,t)=>n+(+t.dur||0),0)}}
 export function progress(store){
