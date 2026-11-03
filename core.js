@@ -70,11 +70,15 @@ export function sequentialState(store,date,c=cfg(store)){
  const words=completedUnits(store,'words',c.redbookDone,date);
  const maps=completedUnits(store,'maps',c.bioMapsDone,date);
  const anki=completedUnits(store,'anki',c.ankiDone,date);
+ const polMocks=completedUnits(store,'polMocks',0,date);
+ const westSections=completedUnits(store,'westSections',7,date);
  return{
   words:missingRange(words,57,1),
   maps:missingRange(maps,34,3),
   mapsComplete:maps.size>=34,
-  anki:missingRange(anki,1202,10)
+  anki:missingRange(anki,1202,10),
+  polMocks:missingRange(polMocks,26,1),
+  westSections:missingRange(westSections,39,2)
  }
 }
 const LEG_CLASS_PLAN={
@@ -123,7 +127,57 @@ const LEG_EXTRAS={
  '2026-10-28':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0]],
  '2026-10-29':[['leg-carry','腿姐 · 带背任务','带背任务 · 按原计划执行',0],['leg-homework','腿姐 · 新思想课后作业3 + 背诵','作业 + 背诵任务 · 原计划合计约 2h',120]]
 };
-export function generate(date,c,seq=null){const out=[];if(!validDate(date)||date<c.start)return out;const n=Math.max(0,daysBetween(date,c.start));
+
+const NOV_START='2026-11-03';
+const NOV_END='2026-11-30';
+const NOV_POL_MOCKS=[
+ ...Array.from({length:8},(_,i)=>'腿'+(i+1)),
+ ...Array.from({length:10},(_,i)=>'肖'+(i+1)),
+ ...Array.from({length:8},(_,i)=>'米'+(i+1))
+];
+const NOV_ENG_YEARS=[2021,2022,2023,2025,2020,2019,2018];
+const NOV_WEST_MOCKS=['ttsx26四套卷1','2015卷','ttsx26四套卷2','2014卷','王强三套卷1','ttsx26四套卷4','王强3套卷2'];
+function isNovemberPlanDate(date){return date>=NOV_START&&date<=NOV_END}
+function generateNovember(date,c,seq){
+ const out=[],n=daysBetween(date,NOV_START);
+ const add=(id,subject,title,detail,dur=0,extra={})=>out.push({id:date+'-nov-'+id,date,subject,title,detail,dur,done:false,pri:'normal',...extra});
+
+ add('pol-recite','pol','背诵手册 30min','11 月每日任务',30);
+ if(n<14){
+  const lesson=Math.floor(n/2)+1,half=n%2===0?'上半':'下半';
+  add('pol-class','pol',`政治剩余课 · 第 ${lesson}/7 节 · ${half}`,'每节课 2h，拆成两天，每天听 1h；共 14 天',60,{pri:'high'})
+ }
+ const mockIndex=seq?.polMocks?.[0]??Math.min(26,n+1);
+ if(mockIndex>=1&&mockIndex<=26){
+  const name=NOV_POL_MOCKS[mockIndex-1];
+  add('pol-mock','pol',name,'每天 1 套；没做完不进入下一套。顺序：腿8套 → 肖10套 → 米8套',0,{units:{polMocks:[mockIndex]},pri:'high'})
+ }
+ if(date>='2026-11-23'&&date<='2026-11-27'){
+  add('pol-sprint','pol',`冲刺押题班 · 第 ${daysBetween(date,'2026-11-23')+1}/5 天`,'11/23–11/27；按当天课程安排完成',0,{pri:'high'})
+ }
+
+ add('eng-vocab','eng','英语单词 30min','11 月每日任务',30);
+ add('eng-reading','eng','阅读 1 篇 + 订正','每天练习 1 篇阅读并完成订正',60,{pri:'high'});
+ if(n===0)add('eng-essay-class','eng','作文听课 · 1 节','11 月作文课，共 1 节',60);
+ const engCycle=Math.floor(n/4),engPhase=n%4;
+ if(engCycle<NOV_ENG_YEARS.length){
+  const year=NOV_ENG_YEARS[engCycle],phases=['整套作答','阅读订正','完型 + 新题型订正','翻译 + 作文订正'];
+  add('eng-paper','eng',`${year} 年英语 · ${phases[engPhase]}`,`4 天一套 · 第 ${engCycle+1}/7 套`,engPhase===0?180:0,{pri:'high'})
+ }
+
+ add('west-crazy','west','TTSX 狂背听课 + 对应任务','每天上午；按 TTSX 当日要求完成对应任务',0,{pri:'high'});
+ const sectionArr=seq?.westSections??Array.from({length:2},(_,i)=>Math.min(39,8+n*2+i)).filter(v=>v<=39);
+ if(sectionArr.length)add('west-sections','west',`章节模拟题 · 第 ${sectionArr.join('、')} 节`,'共 39 节，起点已完成 7 节；每天 2 小节，完成后才推进',0,{units:{westSections:sectionArr},pri:'high'});
+ add('west-roll','west','滚动复习 1h','11 月每日滚动复习',60);
+ add('west-questions','west','西综做题 2h','11 月每日做题',120,{pri:'high'});
+ add('west-errors','west','错题本 30min','11 月每日整理与回顾',30);
+ if(n%4===0){
+  const i=Math.floor(n/4);
+  if(i<NOV_WEST_MOCKS.length)add('west-mock','west',`西综模拟题 · ${NOV_WEST_MOCKS[i]}`,`7 套模拟题 · 每 4 天 1 套 · 第 ${i+1}/7 套`,0,{pri:'high'})
+ }
+ return out
+}
+export function generate(date,c,seq=null){const out=[];if(!validDate(date)||date<c.start)return out;if(isNovemberPlanDate(date))return generateNovember(date,c,seq);const n=Math.max(0,daysBetween(date,c.start));
  const add=(id,subject,title,detail,dur=0,extra={})=>out.push({id:date+'-'+id,date,subject,title,detail,dur,done:false,pri:'normal',...extra});
  const cycle=(anchor,years)=>{const d=daysBetween(date,anchor);return d<0?{year:null,phase:0}:{year:years[Math.floor(d/4)],phase:d%4}};
  const x=cycle(c.xzAnchor,[2019,2018,2017,2016]);
@@ -174,16 +228,53 @@ function reconcilePolitics(saved,planned,date){
  }
  return out
 }
+
+const OLD_AUTO_SUFFIXES=['-redbook','-words-review','-essay','-en-paper','-hulusi','-med-questions','-bio-maps','-bio-notes','-anki','-anki-review','-politics','-xz-paper','-xz-correct','-xz-class'];
+function isOldAutoNovTask(t,date){return OLD_AUTO_SUFFIXES.some(s=>t.id===date+s)}
+function isNovManagedTask(t,date){return t.id.startsWith(date+'-nov-')}
+function novEquivalentDone(saved,p){
+ if(p.id.endsWith('-nov-pol-recite'))return saved.some(t=>t.done&&t.subject==='pol'&&/背诵.*30min|背诵手册/.test(t.title||''));
+ if(p.id.endsWith('-nov-pol-class'))return saved.some(t=>t.done&&t.subject==='pol'&&/政治.*听课|腿姐听课/.test(t.title||''));
+ if(p.id.endsWith('-nov-eng-essay-class'))return saved.some(t=>t.done&&t.subject==='eng'&&/作文.*(听课|1h)/.test(t.title||''));
+ return false
+}
+function isLegacyNovReplacement(t,planned,date){
+ if(t.done)return false;
+ if(t.subject==='pol'&&/^(腿|肖|米)\d+$/.test(t.title||'')&&planned.some(p=>p.id.endsWith('-nov-pol-mock')))return true;
+ if(t.subject==='pol'&&/政治.*听课|腿姐听课/.test(t.title||'')&&planned.some(p=>p.id.endsWith('-nov-pol-class')))return true;
+ if(t.subject==='pol'&&/政治.*背诵.*30min|背诵手册.*30min/.test(t.title||'')&&planned.some(p=>p.id.endsWith('-nov-pol-recite')))return true;
+ return false
+}
+function reconcileNovember(saved,planned,date){
+ const wantedIds=new Set(planned.map(t=>t.id));
+ const out=saved.filter(t=>{
+  if(t.done)return true;
+  if(isNovManagedTask(t,date))return wantedIds.has(t.id);
+  if(isOldAutoNovTask(t,date))return false;
+  if(isLegacyNovReplacement(t,planned,date))return false;
+  return true
+ });
+ const ids=new Set(out.map(t=>t.id));
+ for(const p of planned)if(!ids.has(p.id)&&!novEquivalentDone(out,p)){out.push(p);ids.add(p.id)}
+ return out
+}
 export function tasksFor(store,date){
  const c=cfg(store),planned=generate(date,c,sequentialState(store,date,c));
  if(!store.get('day',date))return planned;
  let saved=store.all('task').filter(t=>t.date===date);
+ if(isNovemberPlanDate(date))return reconcileNovember(saved,planned,date);
  saved=reconcileSequential(saved,planned,date);
  return reconcilePolitics(saved,planned,date)
 }
 export function materialize(store,date){
  const c=cfg(store),planned=generate(date,c,sequentialState(store,date,c));
  if(!store.get('day',date)){for(const t of planned)store.put('task',t.id,t);store.put('day',date,{id:date});return}
+ if(isNovemberPlanDate(date)){
+  const saved=store.all('task').filter(t=>t.date===date),wanted=reconcileNovember(saved,planned,date),wantedIds=new Set(wanted.map(t=>t.id));
+  for(const old of saved)if(!old.done&&!wantedIds.has(old.id))store.del('task',old.id);
+  for(const p of wanted)if(!store.get('task',p.id))store.put('task',p.id,p);
+  return
+ }
  const saved=store.all('task').filter(t=>t.date===date),savedSeq=saved.filter(t=>isSeqTask(t,date));
  if(!savedSeq.some(t=>t.done)){
   const wanted=planned.filter(t=>isSeqTask(t,date)),wantedIds=new Set(wanted.map(t=>t.id));
