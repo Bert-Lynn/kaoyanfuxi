@@ -56,6 +56,10 @@ export function completedUnits(store,keyName,baseline=0,beforeDate=''){
    const m=String(task.title||'').match(/红宝书\s*[·:：]?\s*Unit\s*(\d{1,2})/i);
    if(m){const n=+m[1];if(n>=1&&n<=57)set.add(n);continue}
   }
+  if(keyName==='novPolPapers'){
+   const m=String(task.title||'').trim().match(/^(腿|肖|米)\s*(\d{1,2})$/);
+   if(m){const n=+m[2],idx=m[1]==='腿'?n:m[1]==='肖'?8+n:18+n;if(idx>=1&&idx<=26)set.add(idx);continue}
+  }
   const arr=task.units?.[keyName];
   if(Array.isArray(arr))for(const v of arr){const n=+v;if(Number.isInteger(n)&&n>0)set.add(n)}
  }
